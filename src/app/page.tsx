@@ -2,20 +2,42 @@
 
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { useAuth } from "@/contexts/AuthContextProvider";
+import { UserRole } from "@/types";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function Home() {
-  const { user, isLoading } = useAuth();
+  const { hrmUser, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isLoading, router]);
+    if (isLoading) return;
 
-  if (isLoading || !user) {
+    if (!hrmUser) {
+      // Redirect unauthenticated users to login
+      router.push('/login');
+      return;
+    }
+
+    // Redirect authenticated users based on role
+    switch (hrmUser.role) {
+      case UserRole.HR:
+        router.push('/hr');
+        break;
+      case UserRole.SITE_INCHARGE:
+        router.push('/site');
+        break;
+      case UserRole.EMPLOYEE:
+        router.push('/employee');
+        break;
+      default:
+        // Fallback or error page if role is undefined/unknown
+        router.push('/login');
+        break;
+    }
+  }, [hrmUser, isLoading, router]);
+
+  if (isLoading || hrmUser) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p>Loading application...</p>
@@ -23,13 +45,6 @@ export default function Home() {
     );
   }
 
-  return (
-    <div className="grid grid-rows-[1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-1 items-center sm:items-start">
-        <h1 className="text-3xl font-bold">Welcome to the HRM Salary Manager, {user.email}!</h1>
-        <p>Start building your salary slip management features here.</p>
-      </main>
-      <MadeWithDyad />
-    </div>
-  );
+  // Should not be reached if redirection works, but necessary for React component return
+  return null;
 }
