@@ -1,9 +1,10 @@
 -- PostgreSQL Database Schema for Konark HR System
--- Production Ready Upgrade v2.0
+-- Production Ready Upgrade v3.0 (Native UUIDs)
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- 1. SETUP & ENUMS
+-- We use pgcrypto only if gen_random_uuid is not available, but usually it is in PG 13+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- ENUMS
 DO $$ BEGIN
     CREATE TYPE user_role AS ENUM ('HR', 'SITE_INCHARGE', 'EMPLOYEE');
     CREATE TYPE site_status AS ENUM ('ACTIVE', 'CLOSED');
@@ -15,17 +16,19 @@ EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- 1. COMPANIES
+-- 2. TABLES
+
+-- COMPANIES
 CREATE TABLE IF NOT EXISTS companies (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   client_id TEXT NOT NULL,
   name TEXT NOT NULL,
   logo_url TEXT
 );
 
--- 2. SITES
+-- SITES
 CREATE TABLE IF NOT EXISTS sites (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   site_code TEXT,
@@ -41,16 +44,17 @@ CREATE TABLE IF NOT EXISTS sites (
   logo_url TEXT
 );
 
--- 3. USERS (HR Only - Linked to Supabase Auth)
+-- USERS (HR Only - Linked to Supabase Auth)
+-- Note: Requires Supabase Auth to be active.
 CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY REFERENCES auth.users(id), -- Tight coupling with Auth
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   role user_role DEFAULT 'HR' CHECK (role = 'HR'),
   company_id UUID REFERENCES companies(id) ON DELETE SET NULL
 );
 
--- 4. EMPLOYEES (Staff - UAN Identity)
+-- EMPLOYEES (Staff - UAN Identity)
 CREATE TABLE IF NOT EXISTS employees (
   uan TEXT PRIMARY KEY CHECK (uan ~ '^[0-9]{12}$'), -- Strictly 12 digits
   name TEXT NOT NULL,
@@ -62,9 +66,9 @@ CREATE TABLE IF NOT EXISTS employees (
   joined_date DATE NOT NULL DEFAULT CURRENT_DATE
 );
 
--- 5. SALARY RECORDS (Raw Components Only)
+-- SALARY RECORDS (Raw Components Only)
 CREATE TABLE IF NOT EXISTS salary_records (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   employee_uan TEXT NOT NULL REFERENCES employees(uan) ON DELETE CASCADE,
   month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
   year INTEGER NOT NULL,
@@ -77,16 +81,16 @@ CREATE TABLE IF NOT EXISTS salary_records (
   CONSTRAINT salary_uan_month_year_key UNIQUE (employee_uan, month, year)
 );
 
--- 6. SALARY VIEW (Computed Business Logic)
+-- SALARY VIEW (Computed Business Logic)
 CREATE OR REPLACE VIEW salary_view AS
 SELECT 
   sr.*,
   (sr.basic + sr.hra + sr.allowances - sr.pf_deduction - sr.tax_deduction) AS net_salary
 FROM salary_records sr;
 
--- 7. AUDIT LOGS
+-- AUDIT LOGS
 CREATE TABLE IF NOT EXISTS audit_logs (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   timestamp TIMESTAMPTZ DEFAULT NOW(),
   actor_id TEXT NOT NULL, -- UUID or UAN
   action TEXT NOT NULL,
@@ -95,9 +99,9 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   severity severity_level DEFAULT 'INFO'
 );
 
--- 8. NOTIFICATIONS
+-- NOTIFICATIONS
 CREATE TABLE IF NOT EXISTS notifications (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id TEXT NOT NULL, -- UUID or UAN
   message TEXT NOT NULL,
   type notification_type DEFAULT 'INFO',
@@ -118,39 +122,50 @@ ALTER TABLE salary_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
--- 1. COMPANIES & SITES (Public Read, HR Write)
+-- 1. COMPANIES & SITES
+DROP POLICY IF EXISTS "Public Read Companies" ON companies;
 CREATE POLICY "Public Read Companies" ON companies FOR SELECT USING (true);
+DROP POLICY IF EXISTS "HR Write Companies" ON companies;
 CREATE POLICY "HR Write Companies" ON companies FOR ALL USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Public Read Sites" ON sites;
 CREATE POLICY "Public Read Sites" ON sites FOR SELECT USING (true);
+DROP POLICY IF EXISTS "HR Write Sites" ON sites;
 CREATE POLICY "HR Write Sites" ON sites FOR ALL USING (auth.role() = 'authenticated');
 
--- 2. USERS (HR Read Own, HR Write)
+-- 2. USERS
+DROP POLICY IF EXISTS "Users Read Own" ON users;
 CREATE POLICY "Users Read Own" ON users FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "HR Insert Users" ON users FOR INSERT WITH CHECK (auth.uid() = id); -- Self registration during seed
+DROP POLICY IF EXISTS "HR Insert Users" ON users;
+CREATE POLICY "HR Insert Users" ON users FOR INSERT WITH CHECK (auth.uid() = id);
 
--- 3. EMPLOYEES (Public Read for UAN Login, HR Write)
--- Note: 'Public Read' is required because Staff logs in via UAN without Supabase Auth session.
--- In a stricter environment, we would use Edge Functions.
+-- 3. EMPLOYEES
+DROP POLICY IF EXISTS "Public Read Employees" ON employees;
 CREATE POLICY "Public Read Employees" ON employees FOR SELECT USING (true);
+DROP POLICY IF EXISTS "HR Write Employees" ON employees;
 CREATE POLICY "HR Write Employees" ON employees FOR ALL USING (auth.role() = 'authenticated');
--- Allow Site Incharge (Anon) to insert employees? 
--- For production safety, we allow ANON insert but status is PENDING.
+DROP POLICY IF EXISTS "Anon Insert Employees" ON employees;
 CREATE POLICY "Anon Insert Employees" ON employees FOR INSERT WITH CHECK (status = 'PENDING');
 
--- 4. SALARY RECORDS (Public Read for View, HR Write)
+-- 4. SALARY RECORDS
+DROP POLICY IF EXISTS "Public Read Salary" ON salary_records;
 CREATE POLICY "Public Read Salary" ON salary_records FOR SELECT USING (true);
+DROP POLICY IF EXISTS "HR Write Salary" ON salary_records;
 CREATE POLICY "HR Write Salary" ON salary_records FOR ALL USING (auth.role() = 'authenticated');
 
--- 5. AUDIT LOGS & NOTIFICATIONS (Insert by anyone, Read by HR/Owner)
+-- 5. AUDIT & NOTIF
+DROP POLICY IF EXISTS "Anyone Insert Logs" ON audit_logs;
 CREATE POLICY "Anyone Insert Logs" ON audit_logs FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "HR Read Logs" ON audit_logs;
 CREATE POLICY "HR Read Logs" ON audit_logs FOR SELECT USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Anyone Insert Notif" ON notifications;
 CREATE POLICY "Anyone Insert Notif" ON notifications FOR INSERT WITH CHECK (true);
-CREATE POLICY "Read Own Notif" ON notifications FOR SELECT USING (true); -- Simplified for UAN
+DROP POLICY IF EXISTS "Read Own Notif" ON notifications;
+CREATE POLICY "Read Own Notif" ON notifications FOR SELECT USING (true);
 
 
--- SEED DATA (Only runs if empty)
+-- SEED DATA
 INSERT INTO companies (id, client_id, name, logo_url) 
 VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'KONARK001', 'Konark Enterprises Pvt. Ltd.', 'https://via.placeholder.com/150')
 ON CONFLICT DO NOTHING;

@@ -42,18 +42,33 @@
         background: #94a3b8; 
       }
     </style>
-  <script type="importmap">
+    <!-- Global Error Handler for White Screen Debugging -->
+    <script>
+      window.addEventListener('error', function(e) {
+        if (!document.getElementById('root').hasChildNodes()) {
+           document.body.innerHTML = '<div style="padding:20px; color:#ef4444; font-family:sans-serif; max-width:800px; margin:0 auto; margin-top:50px; background:white; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.1); border:1px solid #fee2e2;">' + 
+           '<h2 style="margin-top:0; font-size:1.5rem; font-weight:700;">System Error</h2>' +
+           '<p style="color:#374151;">The application failed to render. This is likely a dependency mismatch or a runtime crash.</p>' +
+           '<pre style="background:#f3f4f6; padding:15px; border-radius:8px; overflow:auto; font-size:0.85rem; color:#1f2937; border:1px solid #e5e7eb;">' + (e.error ? e.error.stack : e.message) + '</pre>' +
+           '<button onclick="window.location.reload()" style="margin-top:20px; background:#1f2937; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer; font-weight:600;">Reload Application</button>' +
+           '</div>';
+        }
+      });
+    </script>
+    <script type="importmap">
 {
   "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "recharts": "https://esm.sh/recharts@^3.6.0",
+    "react": "https://esm.sh/react@18.2.0",
+    "react/": "https://esm.sh/react@18.2.0/",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.344.0?deps=react@18.2.0",
+    "recharts": "https://esm.sh/recharts@2.12.2?deps=react@18.2.0,react-dom@18.2.0",
     "xlsx": "https://esm.sh/xlsx@0.18.5",
     "jspdf": "https://esm.sh/jspdf@2.5.1",
     "html2canvas": "https://esm.sh/html2canvas@1.4.1",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.3"
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.7",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
   }
 }
 </script>

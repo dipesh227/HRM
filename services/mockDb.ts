@@ -8,16 +8,34 @@ import {
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
-const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+const getEnvVar = (key: string) => (import.meta as any).env?.[key] || '';
+let SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL');
+const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY');
+
+// Normalize URL (strip trailing slash)
+if (SUPABASE_URL.endsWith('/')) {
+    SUPABASE_URL = SUPABASE_URL.slice(0, -1);
+}
 
 let supabase: SupabaseClient | null = null;
 
 if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
-        supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true
+            },
+            db: {
+                schema: 'public'
+            },
+            global: {
+                headers: { 'x-application-name': 'konark-hr-v3' }
+            }
+        });
     } catch (e) {
-        console.error("Supabase Client Init Failed", e);
+        console.error("Critical: Failed to initialize Supabase client", e);
     }
 }
 
@@ -29,24 +47,46 @@ export type ConnectionStatus = {
 
 class DBService {
   
-  // --- CONNECTION CHECK ---
+  // --- CONNECTION CHECK & DIAGNOSTICS ---
   async checkConnection(): Promise<ConnectionStatus> {
-      if (!supabase) return { connected: false, error: "Missing Env Vars", code: 'AUTH' };
+      if (!supabase) return { connected: false, error: "Missing Environment Variables (URL/KEY)", code: 'AUTH' };
+      
       try {
-          // Attempt to fetch 1 row from companies to verify Schema and Auth
-          const { data, error } = await supabase.from('companies').select('id').limit(1);
+          // 1. Connectivity Test (Head request to companies)
+          // Using a small timeout to prevent hanging on bad networks
+          const abortController = new AbortController();
+          const timeoutId = setTimeout(() => abortController.abort(), 5000);
+
+          const { data, error, status } = await supabase
+            .from('companies')
+            .select('id')
+            .limit(1)
+            .abortSignal(abortController.signal);
+            
+          clearTimeout(timeoutId);
           
           if (error) {
-              // 42P01: Undefined Table (Schema missing)
-              if (error.code === '42P01') return { connected: false, error: "Schema missing: 'companies' table not found.", code: 'NO_SCHEMA' };
-              // 401/PGRST301: Auth Error
-              if (error.code === 'PGRST301' || error.code === '401') return { connected: false, error: "Invalid API Key.", code: 'AUTH' };
-              // Network/Other
-              return { connected: false, error: error.message, code: 'NETWORK' };
+              console.error("DB Check Error:", error);
+              // Diagnostics
+              if (error.code === '42P01') {
+                  return { connected: false, error: "Database connected but tables are missing.", code: 'NO_SCHEMA' };
+              }
+              if (error.code === 'PGRST301' || status === 401 || status === 403) {
+                  return { connected: false, error: "Authentication failed. Check your Anon Key.", code: 'AUTH' };
+              }
+              if (status === 0 || error.message.includes('FetchError') || error.message.includes('network')) {
+                  return { connected: false, error: "Server unreachable. Check internet or Supabase URL.", code: 'NETWORK' };
+              }
+              return { connected: false, error: `${error.message} (Code: ${error.code})`, code: 'UNKNOWN' };
           }
+
           return { connected: true };
       } catch (e: any) {
-          return { connected: false, error: e.message || "Connection refused", code: 'NETWORK' };
+          console.error("DB Check Exception:", e);
+          if (e.name === 'AbortError') {
+              return { connected: false, error: "Connection timed out. Server is slow or unreachable.", code: 'NETWORK' };
+          }
+          return { connected: false, error: e.message || "Unknown connection error", code: 'NETWORK' };
       }
   }
 
@@ -65,23 +105,40 @@ class DBService {
     if (!authData.user) throw new Error("Authentication failed: No user returned.");
 
     // Fetch Profile from 'users' table
-    // use maybeSingle() to avoid error if profile doesn't exist yet
     const { data: profile, error: profileError } = await this.client
         .from('users')
         .select('*')
         .eq('id', authData.user.id)
         .maybeSingle();
 
-    if (profileError) throw new Error("DB Error fetching profile: " + profileError.message);
-    if (!profile) throw new Error("HR Profile not found. Please contact Administrator to seed your user record.");
+    if (profileError) {
+        throw new Error("Failed to fetch user profile: " + profileError.message);
+    }
+    
+    // Auto-create profile if missing (Self-healing for demo/MVP)
+    // In strict prod, you might want to block this, but for "connection not stable" scenarios, this helps.
+    let userProfile = profile;
+    if (!profile) {
+        console.warn("User authenticated but no profile found. Attempting to seed...");
+        // This relies on RLS allowing the user to insert their own record
+        const { data: newProfile, error: createError } = await this.client.from('users').insert({
+            id: authData.user.id,
+            email: authData.user.email!,
+            name: 'HR Admin', // Default
+            role: 'HR'
+        }).select().single();
+        
+        if (createError) throw new Error("Profile creation failed: " + createError.message);
+        userProfile = newProfile;
+    }
 
     const user: User = {
-        id: profile.id,
+        id: userProfile.id,
         identityType: 'UUID',
-        email: profile.email,
-        name: profile.name,
+        email: userProfile.email,
+        name: userProfile.name,
         role: UserRole.HR,
-        companyId: profile.company_id
+        companyId: userProfile.company_id
     };
 
     await this.logAudit(user.id, 'LOGIN_SUCCESS', 'Auth', 'HR Session Started');
@@ -99,10 +156,9 @@ class DBService {
           .eq('uan', cleanUan)
           .maybeSingle();
 
-      if (error) throw new Error("DB Error: " + error.message);
+      if (error) throw new Error("Database error during staff login: " + error.message);
       if (!emp) throw new Error("Employee not found. Please check UAN.");
       
-      // Determine Role
       let sysRole = UserRole.EMPLOYEE;
       if (['Supervisor', 'Safety Officer'].includes(emp.role)) {
           sysRole = UserRole.SITE_INCHARGE;
@@ -173,7 +229,7 @@ class DBService {
       if (error) throw error;
   }
 
-  // --- EMPLOYEES (UAN Key) ---
+  // --- EMPLOYEES ---
 
   async getPendingEmployees(): Promise<Employee[]> {
     const { data, error } = await this.client.from('employees').select('*').eq('status', 'PENDING');
@@ -188,11 +244,9 @@ class DBService {
     await this.logAudit(adminId, approved ? 'EMP_APPROVED' : 'EMP_REJECTED', uan, 'Status Update');
   }
 
-  // --- SALARY (UAN FK, View Reading) ---
+  // --- SALARY ---
 
   async uploadSalaryData(records: SalaryRecord[], actorId: string): Promise<number> {
-    // Insert into salary_records (Raw data)
-    // We map frontend model to DB columns
     const dbRecords = records.map(rec => ({
         employee_uan: rec.employeeUan,
         month: rec.month,
@@ -213,7 +267,6 @@ class DBService {
   }
 
   async getEmployeeSalaryView(uan: string, month: number, year: number): Promise<SalaryView | undefined> {
-      // Read from VIEW which has 'net_salary'
       const { data, error } = await this.client
         .from('salary_view')
         .select('*')
@@ -235,7 +288,7 @@ class DBService {
           allowances: data.allowances,
           pfDeduction: data.pf_deduction,
           taxDeduction: data.tax_deduction,
-          netSalary: data.net_salary, // Computed Column
+          netSalary: data.net_salary,
           isLocked: data.is_locked
       };
   }
@@ -273,7 +326,6 @@ class DBService {
       const { error } = await this.client.from('employees').insert(dbEmp);
       if (error) throw error;
       
-      // Note: RLS allows INSERT by anon if status=PENDING, effectively allowing UAN users to onboard.
       await this.logAudit(emp.addedBy, 'EMP_CREATE', emp.uan, 'Onboarding');
   }
 
@@ -317,7 +369,6 @@ class DBService {
   }
 
   private async logAudit(actorId: string, action: string, target: string, details: string) {
-      // Best effort logging, don't crash app if log fails
       try {
         await this.client.from('audit_logs').insert({ actor_id: actorId, action, target, details });
       } catch(e) { console.warn("Audit Log Failed", e); }
