@@ -1,24 +1,17 @@
 import React, { useState } from 'react';
-import { UserRole } from '../../types';
+import { UserRole, User } from '../../types';
 import { dbService } from '../../services/mockDb';
-import { User } from '../../types';
-import { UserCircle, Lock, Building, Users, Loader2, BadgeCheck, HardHat, Briefcase } from 'lucide-react';
+import { UserCircle, Lock, Building, Users, Loader2, BadgeCheck, HardHat, Briefcase, ArrowRight } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: User) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  // 3-Way Role Selector
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.HR);
-  
-  // HR State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
-  // Staff State (UAN)
   const [uan, setUan] = useState('');
-
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -29,15 +22,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
     try {
         if (selectedRole === UserRole.HR) {
-            // HR Login: Supabase Auth + Public.Users check
             const user = await dbService.loginHR(email, password);
             onLogin(user);
         } else {
-            // Staff Login: UAN check + Role determination
             const user = await dbService.loginStaff(uan);
-            
-            // Note: SITE_INCHARGE and EMPLOYEE roles are determined by backend logic.
-            // If user selected 'Site Incharge' but is actually an 'Employee', the system logs them in as 'Employee'.
             onLogin(user);
         }
     } catch (err: any) {
@@ -48,127 +36,139 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors duration-200">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-800">
+    <div className="min-h-screen bg-[conic-gradient(at_top_right,_var(--tw-gradient-stops))] from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Decor */}
+      <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"></div>
+      <div className="absolute top-1/2 -right-24 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl"></div>
+
+      <div className="bg-white/10 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white/20 relative z-10 animate-fade-in-up">
         {/* Header */}
-        <div className="bg-slate-900 dark:bg-slate-950 p-8 text-white text-center border-b border-slate-800">
-          <div className="inline-flex h-12 w-12 bg-blue-600 rounded-lg items-center justify-center mb-4 shadow-lg shadow-blue-900/50 border border-blue-500">
-             <span className="text-xl font-bold">KE</span>
+        <div className="p-8 text-center border-b border-white/5">
+          <div className="inline-flex h-14 w-14 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl items-center justify-center mb-4 shadow-lg shadow-blue-900/50 border border-white/10 transform rotate-3 hover:rotate-6 transition-transform">
+             <span className="text-2xl font-bold text-white">KE</span>
           </div>
-          <h1 className="text-2xl font-bold mb-1 tracking-tight">Konark HR Portal</h1>
-          <p className="text-slate-400 text-sm">Enterprise Resource Management</p>
+          <h1 className="text-3xl font-bold mb-1 tracking-tight text-white">Welcome Back</h1>
+          <p className="text-slate-300 text-sm">Sign in to Konark Enterprise Portal</p>
         </div>
         
-        <div className="p-6">
-          {/* 3-Way Role Selector */}
-          <div className="grid grid-cols-3 gap-2 mb-6 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+        <div className="p-8">
+          {/* Role Tabs */}
+          <div className="flex p-1 bg-black/20 rounded-xl mb-8 relative">
             <button 
               type="button"
               onClick={() => { setSelectedRole(UserRole.HR); setError(''); }}
-              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-md font-medium text-xs transition-all ${selectedRole === UserRole.HR ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400 ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all relative z-10 ${selectedRole === UserRole.HR ? 'text-white bg-blue-600 shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
             >
-                <Lock className="w-4 h-4" /> 
-                <span>HR Admin</span>
+                <Lock className="w-3.5 h-3.5" /> 
+                HR Admin
             </button>
             <button 
               type="button"
               onClick={() => { setSelectedRole(UserRole.SITE_INCHARGE); setError(''); }}
-              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-md font-medium text-xs transition-all ${selectedRole === UserRole.SITE_INCHARGE ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400 ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all relative z-10 ${selectedRole === UserRole.SITE_INCHARGE ? 'text-white bg-blue-600 shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
             >
-                <Briefcase className="w-4 h-4" /> 
-                <span>Site Incharge</span>
+                <Briefcase className="w-3.5 h-3.5" /> 
+                Site Manager
             </button>
             <button 
               type="button"
               onClick={() => { setSelectedRole(UserRole.EMPLOYEE); setError(''); }}
-              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-md font-medium text-xs transition-all ${selectedRole === UserRole.EMPLOYEE ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400 ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all relative z-10 ${selectedRole === UserRole.EMPLOYEE ? 'text-white bg-blue-600 shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
             >
-                <HardHat className="w-4 h-4" /> 
-                <span>Employee</span>
+                <HardHat className="w-3.5 h-3.5" /> 
+                Employee
             </button>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4 animate-fade-in">
+          <form onSubmit={handleLogin} className="space-y-5">
             {selectedRole === UserRole.HR ? (
                 <>
-                    <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">HR Email</label>
-                    <div className="relative">
-                        <UserCircle className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-                        <input 
-                        type="email" 
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-                        placeholder="admin@konark.com"
-                        disabled={loading}
-                        />
+                    <div className="group">
+                        <label className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider group-focus-within:text-blue-400 transition-colors">Email Address</label>
+                        <div className="relative">
+                            <UserCircle className="absolute left-3 top-3.5 h-5 w-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
+                            <input 
+                                type="email" 
+                                required
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 bg-black/20 border border-white/10 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 outline-none transition-all placeholder:text-slate-600"
+                                placeholder="admin@konark.com"
+                                disabled={loading}
+                            />
+                        </div>
                     </div>
-                    </div>
-                    <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password</label>
-                    <div className="relative">
-                        <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-                        <input 
-                        type="password" 
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
-                        placeholder="••••••••"
-                        disabled={loading}
-                        />
-                    </div>
+                    <div className="group">
+                        <label className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider group-focus-within:text-blue-400 transition-colors">Password</label>
+                        <div className="relative">
+                            <Lock className="absolute left-3 top-3.5 h-5 w-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
+                            <input 
+                                type="password" 
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 bg-black/20 border border-white/10 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 outline-none transition-all placeholder:text-slate-600"
+                                placeholder="••••••••"
+                                disabled={loading}
+                            />
+                        </div>
                     </div>
                 </>
             ) : (
-                <>
-                    <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                        {selectedRole === UserRole.SITE_INCHARGE ? 'Incharge UAN' : 'Employee UAN'} (12-Digit)
+                <div className="group">
+                    <label className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider group-focus-within:text-blue-400 transition-colors">
+                        {selectedRole === UserRole.SITE_INCHARGE ? 'Manager UAN' : 'Employee UAN'} (12-Digit)
                     </label>
                     <div className="relative">
-                        <BadgeCheck className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                        <BadgeCheck className="absolute left-3 top-3.5 h-5 w-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
                         <input 
-                        type="text" 
-                        required
-                        pattern="\d{12}"
-                        title="12 Digit Numeric UAN"
-                        value={uan}
-                        onChange={(e) => setUan(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono tracking-wider transition-colors"
-                        placeholder="100000000001"
-                        disabled={loading}
+                            type="text" 
+                            required
+                            pattern="\d{12}"
+                            title="12 Digit Numeric UAN"
+                            value={uan}
+                            onChange={(e) => setUan(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-black/20 border border-white/10 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 outline-none font-mono tracking-wider transition-all placeholder:text-slate-600"
+                            placeholder="100000000001"
+                            disabled={loading}
                         />
                     </div>
-                    <p className="text-xs text-slate-400 mt-1 pl-1">
+                    <p className="text-xs text-slate-500 mt-2 pl-1">
                         {selectedRole === UserRole.SITE_INCHARGE 
-                            ? "Enter your UAN. System will verify Supervisor/Safety role." 
-                            : "Enter your UAN to view payslips and profile."}
+                            ? "Use your assigned Universal Account Number." 
+                            : "Enter UAN to view payslips securely."}
                     </p>
-                    </div>
-                </>
+                </div>
             )}
 
             {error && (
-                <div className="flex items-start gap-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-900/30">
-                    <span className="mt-0.5 font-bold">!</span>
+                <div className="flex items-center gap-3 text-red-200 text-sm bg-red-500/10 p-4 rounded-xl border border-red-500/20 backdrop-blur-sm animate-shake">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
                     <span>{error}</span>
                 </div>
             )}
             
-            <button type="submit" disabled={loading} className="w-full bg-slate-800 hover:bg-slate-900 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors shadow-lg flex items-center justify-center gap-2">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (selectedRole === UserRole.HR ? 'Secure Login' : 'Access Dashboard')}
+            <button 
+                type="submit" 
+                disabled={loading} 
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 mt-4 group"
+            >
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                  <>
+                    {selectedRole === UserRole.HR ? 'Secure Login' : 'Access Portal'}
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </>
+              )}
             </button>
           </form>
-
-          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
-             <div className="inline-flex gap-4 text-xs text-slate-400 dark:text-slate-500">
-                <span className="flex items-center gap-1"><Building className="h-3 w-3" /> Konark Ent.</span>
-                <span className="flex items-center gap-1"><Users className="h-3 w-3" /> Secure Access</span>
+        </div>
+        
+        {/* Footer */}
+        <div className="px-8 py-4 bg-black/20 border-t border-white/5 text-center">
+             <div className="inline-flex gap-6 text-[10px] text-slate-500 uppercase tracking-widest font-semibold">
+                <span className="flex items-center gap-1.5"><Building className="h-3 w-3" /> Konark Ent.</span>
+                <span className="flex items-center gap-1.5"><Users className="h-3 w-3" /> 256-Bit SSL</span>
              </div>
-          </div>
         </div>
       </div>
     </div>

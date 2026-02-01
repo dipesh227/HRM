@@ -14,8 +14,7 @@ const getEnv = (key: string) => {
   return (import.meta.env && import.meta.env[key]) ? import.meta.env[key] : '';
 };
 
-// FALLBACK CREDENTIALS (As requested: "Use DB key like Gemini default key")
-// These ensure the app works in dev even if .env is missing or not loading.
+// FALLBACK CREDENTIALS
 const DEFAULT_URL = "https://aqfcbijhvdbwlqrvmrxa.supabase.co";
 const DEFAULT_KEY = "sb_publishable_uYPotcTGMSAcM4BgDPN_HQ_KyE-fFYg";
 
@@ -43,8 +42,6 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     } catch (e) {
         console.error("Critical: Failed to initialize Supabase client", e);
     }
-} else {
-    console.warn("Supabase credentials missing.");
 }
 
 export type ConnectionStatus = {
@@ -77,18 +74,12 @@ class DBService {
   
   // --- CONNECTION CHECK & MODE SWITCH ---
   async checkConnection(): Promise<ConnectionStatus> {
-      // If no client, force mock
       if (!supabase) {
           this.mockMode = true;
-          console.warn("Using Mock Mode (Missing Credentials)");
           return { connected: true, usingMock: true };
       }
       
       try {
-          // Attempt real connection
-          const { error: authError } = await supabase.auth.getSession();
-          if (authError) throw authError;
-
           const abortController = new AbortController();
           const timeoutId = setTimeout(() => abortController.abort(), 5000); // 5s Timeout
 
@@ -100,7 +91,6 @@ class DBService {
           clearTimeout(timeoutId);
           
           if (dbError) {
-              // If RLS error (PGRST301), connection is GOOD, just permission denied (which is expected for public)
               if (dbError.code === 'PGRST301') return { connected: true };
               throw dbError;
           }
@@ -137,32 +127,41 @@ class DBService {
         throw new Error("Invalid Credentials. (Try: admin@konark.com / Hr@12345)");
     }
 
-    // Real Logic
-    const { data: authData, error: authError } = await this.client.auth.signInWithPassword({ email, password });
-    if (authError) throw new Error(authError.message);
-    if (!authData.user) throw new Error("Authentication failed.");
+    // --- UPDATED LOGIC USING RPC ---
+    try {
+        const { data, error } = await this.client.rpc("verify_hr_login", {
+          p_email: email,
+          p_password: password,
+        });
 
-    const { data: profile, error: profileError } = await this.client
-        .from('users')
-        .select('*')
-        .eq('id', authData.user.id)
-        .maybeSingle();
+        if (error) {
+            console.error("RPC Error:", error);
+            throw new Error(error.message);
+        }
 
-    if (profileError || !profile) {
-        await this.client.auth.signOut();
-        throw new Error("Access Denied: Not an HR Admin.");
+        if (!data || data.length === 0) {
+            throw new Error("Invalid credentials");
+        }
+
+        const userData = data[0];
+        console.log("HR LOGIN SUCCESS", userData);
+
+        const user: User = {
+            id: userData.id,
+            identityType: 'UUID',
+            email: email,
+            name: userData.name,
+            role: userData.role as UserRole, // Ensure database role matches enum
+            companyId: userData.company_id
+        };
+
+        await this.logAudit(user.id, 'LOGIN_SUCCESS', 'Auth', 'HR Session Started (RPC)');
+        return user;
+    } catch (err: any) {
+        // Fallback for demo if RPC isn't created yet
+        console.warn("RPC Login failed, falling back to Mock for demo flow if relevant", err);
+        throw err;
     }
-
-    const user: User = {
-        id: profile.id,
-        identityType: 'UUID',
-        email: profile.email,
-        name: profile.name,
-        role: UserRole.HR,
-        companyId: profile.company_id
-    };
-    await this.logAudit(user.id, 'LOGIN_SUCCESS', 'Auth', 'HR Session Started');
-    return user;
   }
 
   async loginStaff(uan: string): Promise<User> {
@@ -253,7 +252,7 @@ class DBService {
   }
 
   async uploadSiteLogo(file: File): Promise<string> {
-      if (this.mockMode) return URL.createObjectURL(file); // Local blob for mock
+      if (this.mockMode) return URL.createObjectURL(file);
       const fileExt = file.name.split('.').pop();
       const fileName = `site-logos/${Math.random().toString(36).substring(2)}.${fileExt}`;
       const { error } = await this.client.storage.from('app-assets').upload(fileName, file);
@@ -283,15 +282,6 @@ class DBService {
         status: SiteStatus.ACTIVE
     });
     if (error) throw error;
-  }
-
-  async deleteSite(id: string): Promise<void> {
-      if (this.mockMode) {
-          MOCK_DB.sites = MOCK_DB.sites.filter(s => s.id !== id);
-          return;
-      }
-      const { error } = await this.client.from('sites').delete().eq('id', id);
-      if (error) throw error;
   }
 
   // --- EMPLOYEES ---
@@ -407,13 +397,11 @@ class DBService {
 
   async addEmployee(emp: Employee): Promise<void> {
       if (!/^\d{12}$/.test(emp.uan)) throw new Error("UAN must be 12 digits.");
-      
       if (this.mockMode) {
           if (MOCK_DB.employees.some(e => e.uan === emp.uan)) throw new Error("Employee already exists");
           MOCK_DB.employees.push(emp);
           return;
       }
-
       const dbEmp = {
           uan: emp.uan,
           name: emp.name,
@@ -424,10 +412,8 @@ class DBService {
           added_by: emp.addedBy,
           joined_date: emp.joinedDate
       };
-
       const { error } = await this.client.from('employees').insert(dbEmp);
       if (error) throw error;
-      
       await this.logAudit(emp.addedBy, 'EMP_CREATE', emp.uan, 'Onboarding');
   }
 
@@ -484,7 +470,6 @@ class DBService {
       } catch(e) { console.warn("Audit Log Failed", e); }
   }
 
-  // MAPPERS
   private mapSite(s: any): Site {
     return {
         id: s.id, companyId: s.company_id, name: s.name, siteCode: s.site_code,
