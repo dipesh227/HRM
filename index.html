@@ -45,14 +45,17 @@
     <!-- Global Error Handler for White Screen Debugging -->
     <script>
       window.addEventListener('error', function(e) {
-        if (!document.getElementById('root').hasChildNodes()) {
-           document.body.innerHTML = '<div style="padding:20px; color:#ef4444; font-family:sans-serif; max-width:800px; margin:0 auto; margin-top:50px; background:white; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.1); border:1px solid #fee2e2;">' + 
-           '<h2 style="margin-top:0; font-size:1.5rem; font-weight:700;">System Error</h2>' +
-           '<p style="color:#374151;">The application failed to render. This is likely a dependency mismatch or a runtime crash.</p>' +
-           '<pre style="background:#f3f4f6; padding:15px; border-radius:8px; overflow:auto; font-size:0.85rem; color:#1f2937; border:1px solid #e5e7eb;">' + (e.error ? e.error.stack : e.message) + '</pre>' +
-           '<button onclick="window.location.reload()" style="margin-top:20px; background:#1f2937; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer; font-weight:600;">Reload Application</button>' +
-           '</div>';
-        }
+        // Wait a moment to see if React mounts, otherwise show error
+        setTimeout(() => {
+            if (!document.getElementById('root').hasChildNodes()) {
+            document.body.innerHTML = '<div style="padding:20px; color:#ef4444; font-family:sans-serif; max-width:800px; margin:0 auto; margin-top:50px; background:white; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.1); border:1px solid #fee2e2;">' + 
+            '<h2 style="margin-top:0; font-size:1.5rem; font-weight:700;">System Error</h2>' +
+            '<p style="color:#374151;">The application failed to start.</p>' +
+            '<pre style="background:#f3f4f6; padding:15px; border-radius:8px; overflow:auto; font-size:0.85rem; color:#1f2937; border:1px solid #e5e7eb;">' + (e.error ? e.error.stack : e.message) + '</pre>' +
+            '<button onclick="window.location.reload()" style="margin-top:20px; background:#1f2937; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer; font-weight:600;">Reload Application</button>' +
+            '</div>';
+            }
+        }, 1000);
       });
     </script>
     <script type="importmap">
@@ -75,5 +78,6 @@
 </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>

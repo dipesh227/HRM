@@ -68,7 +68,7 @@ class DBService {
 
           // STEP 2: Check Database Schema (Requires tables to exist)
           const abortController = new AbortController();
-          const timeoutId = setTimeout(() => abortController.abort(), 8000); // 8s timeout
+          const timeoutId = setTimeout(() => abortController.abort(), 15000); // Increased to 15s
 
           const { data, error, status } = await supabase
             .from('companies')
@@ -97,7 +97,7 @@ class DBService {
       } catch (e: any) {
           console.error("DB Check Exception:", e);
           if (e.name === 'AbortError') {
-              return { connected: false, error: "Connection timed out. Server is slow.", code: 'NETWORK' };
+              return { connected: false, error: "Connection timed out (15s). Server is slow or unreachable.", code: 'NETWORK' };
           }
           return { connected: false, error: e.message || "Unknown connection error", code: 'NETWORK' };
       }
