@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { User, Employee, SiteStatus, EmployeeStatus, Site } from '../../types';
 import { dbService } from '../../services/mockDb';
-import { Users, UserPlus, AlertTriangle, ShieldCheck, ClipboardCheck, Loader2, CheckCircle, X, Building2 } from 'lucide-react';
+import { Users, UserPlus, AlertTriangle, ShieldCheck, ClipboardCheck, Loader2, CheckCircle, X, Building2, Home } from 'lucide-react';
 import { Button } from '../UI/Button';
 import { Badge } from '../UI/Badge';
 import { StatCard } from '../UI/StatCard';
 import { EmployeeList } from './EmployeeList';
 import { NewEmployeeForm } from './NewEmployeeForm';
+import { MobileSidebar } from '../Layout/MobileSidebar';
 
 interface Props {
   user: User;
+  isSidebarOpen?: boolean;
+  onSidebarClose?: () => void;
+  onLogout?: () => void;
 }
 
-const SiteDashboard: React.FC<Props> = ({ user }) => {
+const SiteDashboard: React.FC<Props> = ({ user, isSidebarOpen, onSidebarClose, onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [siteDetails, setSiteDetails] = useState<Site | undefined>(undefined);
@@ -47,11 +51,31 @@ const SiteDashboard: React.FC<Props> = ({ user }) => {
   const isSiteClosed = siteDetails?.status === SiteStatus.CLOSED;
   const complianceScore = Math.round((employees.filter(e => e.status === EmployeeStatus.APPROVED).length / (employees.length || 1)) * 100);
 
+  // Mock Tabs for Sidebar consistency
+  const tabs = [
+      { id: 'dashboard', label: 'Dashboard', icon: Home },
+      { id: 'staff', label: 'Staff List', icon: Users },
+  ];
+
   if (loading && !siteDetails) return <div className="h-full flex items-center justify-center gap-3 text-slate-500 font-medium"><Loader2 className="animate-spin w-6 h-6" /> Loading Site Data...</div>;
 
   return (
     <div className="flex flex-col h-full bg-ios-bg dark:bg-black relative transition-colors duration-200">
       
+      {/* Mobile Sidebar */}
+      {user && onSidebarClose && onLogout && (
+          <MobileSidebar 
+            isOpen={!!isSidebarOpen} 
+            onClose={onSidebarClose} 
+            user={user} 
+            tabs={tabs} 
+            activeTab="dashboard" 
+            onTabChange={() => {}} // Single view for now
+            onAddEmployee={!isSiteClosed ? () => setShowAddForm(true) : undefined}
+            onLogout={onLogout}
+          />
+      )}
+
       {/* Site Header Card */}
       <div className="px-3 py-4 md:px-4 md:py-8 max-w-7xl mx-auto w-full">
         <div className="bg-white dark:bg-ios-dark-card rounded-3xl p-5 md:p-8 shadow-ios dark:shadow-none border border-white/50 dark:border-white/5 flex flex-col lg:flex-row justify-between lg:items-center gap-6">
@@ -81,7 +105,7 @@ const SiteDashboard: React.FC<Props> = ({ user }) => {
                 <div className={`text-xl font-bold ${complianceScore === 100 ? 'text-green-500' : 'text-orange-500'}`}>{complianceScore}%</div>
              </div>
              {!isSiteClosed && (
-                <Button onClick={() => setShowAddForm(true)} icon={UserPlus} className="flex-1 lg:flex-none shadow-lg shadow-blue-500/20">Add Staff</Button>
+                <Button onClick={() => setShowAddForm(true)} icon={UserPlus} className="flex-1 lg:flex-none shadow-lg shadow-blue-500/20 hidden md:flex">Add Staff</Button>
              )}
           </div>
         </div>
@@ -90,7 +114,7 @@ const SiteDashboard: React.FC<Props> = ({ user }) => {
       {/* Main Content */}
       <main className="flex-1 px-3 md:px-4 pb-safe max-w-7xl mx-auto w-full space-y-6">
         
-        {/* Stats Grid - Horizontal Scroll on Mobile */}
+        {/* Stats Grid */}
         <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 -mx-3 px-3 snap-x md:grid md:grid-cols-4 md:mx-0 md:px-0 md:pb-0 touch-pan-x">
            <div className="snap-start min-w-[140px] md:min-w-0">
               <StatCard icon={Users} value={employees.length} title="Total Staff" color="blue" />

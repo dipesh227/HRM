@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../UI/Card';
 import { Button } from '../UI/Button';
 import { InputField } from '../UI/InputField';
+import { ImageUpload } from '../UI/ImageUpload';
 import { dbService } from '../../services/mockDb';
 import { Company } from '../../types';
-import { Building, Mail, Phone, MapPin, ImageIcon, Save, Upload } from 'lucide-react';
+import { Building, Mail, Phone, MapPin, Save } from 'lucide-react';
 
 interface Props {
     showNotification: (type: 'success' | 'error', msg: string) => void;
@@ -16,9 +17,7 @@ export const CompanyProfile: React.FC<Props> = ({ showNotification }) => {
     const [saving, setSaving] = useState(false);
     const [logoFile, setLogoFile] = useState<File | null>(null);
 
-    // Assuming single company for now as per previous mock (ID: c1 or from DB)
-    // In a real multi-tenant scenario, we'd get this from the user's companyId
-    const COMPANY_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'; // Default seeded ID
+    const COMPANY_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
     useEffect(() => {
         loadProfile();
@@ -43,12 +42,11 @@ export const CompanyProfile: React.FC<Props> = ({ showNotification }) => {
         try {
             let logoUrl = company.logoUrl;
             if (logoFile) {
-                // Upload logic handled by updated service
                 logoUrl = await dbService.uploadSiteLogo(logoFile); 
             }
             await dbService.updateCompanyProfile(company.id, { ...company, logoUrl });
             showNotification('success', "Company profile updated successfully.");
-            setLogoFile(null); // Clear pending file
+            setLogoFile(null); 
         } catch (e: any) {
             showNotification('error', e.message);
         } finally {
@@ -65,23 +63,12 @@ export const CompanyProfile: React.FC<Props> = ({ showNotification }) => {
                 
                 {/* Logo & Header Section */}
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8 bg-slate-50 dark:bg-slate-800/30 p-6 rounded-3xl border border-slate-100 dark:border-white/5">
-                    <div className="relative group">
-                        <div className="w-32 h-32 rounded-3xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shadow-lg relative">
-                            {logoFile ? (
-                                <img src={URL.createObjectURL(logoFile)} className="w-full h-full object-contain p-2" alt="Preview" />
-                            ) : company.logoUrl ? (
-                                <img src={company.logoUrl} className="w-full h-full object-contain p-2" alt="Logo" />
-                            ) : (
-                                <Building className="w-12 h-12 text-slate-300" />
-                            )}
-                            
-                            {/* Overlay for uploading */}
-                            <label className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer backdrop-blur-sm">
-                                <Upload className="w-8 h-8 text-white mb-1" />
-                                <span className="text-xs font-bold text-white uppercase tracking-wider">Change</span>
-                                <input type="file" accept="image/*" className="hidden" onChange={e => setLogoFile(e.target.files?.[0] || null)} />
-                            </label>
-                        </div>
+                    <div className="w-full sm:w-auto flex justify-center">
+                        <ImageUpload 
+                            currentImage={company.logoUrl}
+                            onImageSelected={setLogoFile}
+                            className="w-40"
+                        />
                     </div>
                     
                     <div className="text-center sm:text-left flex-1">
@@ -90,7 +77,7 @@ export const CompanyProfile: React.FC<Props> = ({ showNotification }) => {
                             Client ID: {company.clientId}
                          </p>
                          <p className="text-sm text-slate-400 mt-4 max-w-sm">
-                            Click the logo box to upload a new company brand image. This logo will appear on all payslips.
+                            Upload a high-quality logo (PNG/JPG) for official documents and payslips.
                          </p>
                     </div>
                 </div>

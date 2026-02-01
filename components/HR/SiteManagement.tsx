@@ -5,6 +5,7 @@ import { Badge } from '../UI/Badge';
 import { Button } from '../UI/Button';
 import { Modal } from '../UI/Modal';
 import { InputField } from '../UI/InputField';
+import { ImageUpload } from '../UI/ImageUpload';
 import { dbService } from '../../services/mockDb';
 import { NewEmployeeForm } from '../Site/NewEmployeeForm';
 import { Building2, Plus, MapPin, Pencil, Trash2, User as UserIcon, ChevronDown } from 'lucide-react';
@@ -182,6 +183,14 @@ export const SiteManagement: React.FC<SiteManagementProps> = ({ sites, onUpdate,
                 <div className="space-y-4">
                     <InputField label="Site Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} icon={Building2} />
                     
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl">
+                        <ImageUpload 
+                            label="Site Logo (Optional)"
+                            currentImage={formData.logoUrl}
+                            onImageSelected={setSiteLogo}
+                        />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
                         <InputField label="Site Code" value={formData.siteCode || ''} onChange={e => setFormData({...formData, siteCode: e.target.value})} placeholder="CODE" />
                         <InputField label="City" required value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />

@@ -12,12 +12,16 @@ import { SiteManagement } from './SiteManagement';
 import { SalaryProcessing } from './SalaryProcessing';
 import { CompanyProfile } from './CompanyProfile';
 import { HRProfile } from './HRProfile';
+import { MobileSidebar } from '../Layout/MobileSidebar';
 
 interface HRDashboardProps {
     user?: User;
+    isSidebarOpen?: boolean;
+    onSidebarClose?: () => void;
+    onLogout?: () => void;
 }
 
-const HRDashboard: React.FC<HRDashboardProps> = ({ user }) => {
+const HRDashboard: React.FC<HRDashboardProps> = ({ user, isSidebarOpen, onSidebarClose, onLogout }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<any>({});
   const [sites, setSites] = useState<Site[]>([]);
@@ -66,8 +70,23 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user }) => {
   return (
     <div className="flex flex-col min-h-full bg-ios-bg dark:bg-black transition-colors duration-200">
       
-      {/* Scrollable Sub-Header - Responsive Sticky Top matches Navbar Height (16 mobile, 20 desktop) */}
-      <div className="bg-white/90 dark:bg-black/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-white/10 sticky top-16 md:top-20 z-40 pt-3 pb-3 px-4 sm:px-6 lg:px-8 transition-all duration-300">
+      {/* Mobile Sidebar */}
+      {user && onSidebarClose && onLogout && (
+          <MobileSidebar 
+            isOpen={!!isSidebarOpen} 
+            onClose={onSidebarClose} 
+            user={user} 
+            tabs={tabs} 
+            activeTab={activeTab} 
+            onTabChange={(id) => setActiveTab(id as any)}
+            onLogout={onLogout}
+            // HR typically adds users via Site Management, but if global add is needed:
+            // onAddEmployee={() => { setActiveTab('sites'); /* Logic to open modal in site mgmt */ }}
+          />
+      )}
+
+      {/* Desktop Tabs / Mobile Horizontal Scroll (Hidden if we only want sidebar, but usually good to keep for quick access) */}
+      <div className="bg-white/90 dark:bg-black/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-white/10 sticky top-16 md:top-20 z-40 pt-3 pb-3 px-4 sm:px-6 lg:px-8 transition-all duration-300 hidden md:block">
         <div className="max-w-7xl mx-auto">
             <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-3 md:mb-4 tracking-tight px-1 hidden sm:block">Dashboard Overview</h1>
             
@@ -100,6 +119,14 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user }) => {
         </div>
       </div>
 
+      {/* Mobile Header Title (Replaces tabs on mobile since they are in sidebar now) */}
+      <div className="md:hidden px-4 py-3 bg-white/90 dark:bg-black/80 backdrop-blur border-b border-slate-100 dark:border-white/10 sticky top-16 z-30 flex items-center justify-between">
+            <h2 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
+                {React.createElement(tabs.find(t => t.id === activeTab)?.icon || Activity, { className: "w-5 h-5 text-ios-blue" })}
+                {tabs.find(t => t.id === activeTab)?.label}
+            </h2>
+      </div>
+
       {/* Notifications Toast */}
       {feedback && (
           <div className="fixed top-24 md:top-28 right-4 left-4 sm:left-auto sm:w-96 z-[60] animate-slide-up">
@@ -120,7 +147,6 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user }) => {
             {activeTab === 'approvals' && <PendingApprovals employees={pendingEmployees} onUpdate={loadData} showNotification={showNotification} />}
             {activeTab === 'salary' && <SalaryProcessing showNotification={showNotification} />}
             {activeTab === 'profile' && user && <HRProfile showNotification={showNotification} user={user} />}
-
             {activeTab === 'audit' && (
                 <div className="space-y-4">
                     <h3 className="font-bold text-lg px-2">Recent Activity</h3>

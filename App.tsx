@@ -13,6 +13,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Sidebar State
   
   // Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -22,12 +23,10 @@ const App: React.FC = () => {
     return 'light';
   });
 
-  // Database Connection State
   const [dbStatus, setDbStatus] = useState<'CHECKING' | 'CONNECTED' | 'ERROR'>('CHECKING');
   const [dbError, setDbError] = useState('');
   const [dbErrorCode, setDbErrorCode] = useState<string | undefined>(undefined);
 
-  // Apply Theme Effect
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -80,9 +79,8 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setUser(null);
     setShowNotifications(false);
+    setIsSidebarOpen(false);
   };
-
-  // --- RENDER LOGIC ---
 
   if (dbStatus === 'CHECKING') {
       return (
@@ -125,12 +123,31 @@ const App: React.FC = () => {
         notifications={notifications}
         showNotifications={showNotifications}
         setShowNotifications={setShowNotifications}
+        onMenuClick={() => setIsSidebarOpen(true)}
       />
 
       <div className="flex-1 overflow-y-auto relative bg-slate-100 dark:bg-slate-950">
-        {user.role === UserRole.HR && <HRDashboard user={user} />}
-        {user.role === UserRole.SITE_INCHARGE && <SiteDashboard user={user} />}
-        {user.role === UserRole.EMPLOYEE && <EmployeeView user={user} />}
+        {/* Dashboards now receive sidebar props to manage navigation state */}
+        {user.role === UserRole.HR && (
+            <HRDashboard 
+                user={user} 
+                isSidebarOpen={isSidebarOpen} 
+                onSidebarClose={() => setIsSidebarOpen(false)} 
+                onLogout={handleLogout}
+            />
+        )}
+        {user.role === UserRole.SITE_INCHARGE && (
+            <SiteDashboard 
+                user={user}
+                isSidebarOpen={isSidebarOpen}
+                onSidebarClose={() => setIsSidebarOpen(false)}
+                onLogout={handleLogout}
+            />
+        )}
+        {user.role === UserRole.EMPLOYEE && (
+            // Employee View usually doesn't need complex navigation, but passing simple sidebar just in case for consistency if needed
+             <EmployeeView user={user} />
+        )}
       </div>
     </div>
   );
