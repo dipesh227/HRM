@@ -54,7 +54,7 @@ export type ConnectionStatus = {
 // --- MOCK DATA STORE (For Development Fallback) ---
 const MOCK_DB = {
     companies: [
-        { id: 'c1', clientId: 'KONARK001', name: 'Konark Enterprises Pvt. Ltd.', logoUrl: 'https://via.placeholder.com/150' }
+        { id: 'c1', clientId: 'KONARK001', name: 'Konark Enterprises Pvt. Ltd.', logoUrl: 'https://via.placeholder.com/150', email: 'info@konark.com', mobile: '9988776655', address: 'Pune, India' }
     ] as Company[],
     sites: [
         { id: 's1', companyId: 'c1', name: 'Konark Site - Pune HQ', siteCode: 'KE-PUN-01', address: 'Plot 45, Infotech Park', city: 'Pune', state: 'MH', status: SiteStatus.ACTIVE }
@@ -127,7 +127,6 @@ class DBService {
         throw new Error("Invalid Credentials. (Try: admin@konark.com / Hr@12345)");
     }
 
-    // --- UPDATED LOGIC: RPC Login ---
     try {
         const { data, error } = await this.client.rpc("verify_hr_login", {
           p_email: email,
@@ -145,13 +144,12 @@ class DBService {
             throw new Error("Invalid credentials");
         }
 
-        // RPC returns an array of records
         const userData = data[0];
 
         const user: User = {
             id: userData.id,
             identityType: 'UUID',
-            email: email, // RPC response doesn't strictly need to return email if we have it
+            email: email,
             name: userData.name,
             role: userData.role as UserRole,
             companyId: userData.company_id
@@ -243,6 +241,35 @@ class DBService {
     };
   }
 
+  // --- COMPANY ---
+  
+  async getCompanyProfile(companyId: string): Promise<Company | undefined> {
+    if (this.mockMode) return MOCK_DB.companies.find(c => c.id === companyId);
+    const { data } = await this.client.from('companies').select('*').eq('id', companyId).maybeSingle();
+    if (!data) return undefined;
+    return { 
+        id: data.id, clientId: data.client_id, name: data.name, logoUrl: data.logo_url,
+        email: data.email, mobile: data.mobile, address: data.address
+    };
+  }
+
+  async updateCompanyProfile(companyId: string, updates: Partial<Company>): Promise<void> {
+      if (this.mockMode) {
+          const idx = MOCK_DB.companies.findIndex(c => c.id === companyId);
+          if (idx >= 0) MOCK_DB.companies[idx] = { ...MOCK_DB.companies[idx], ...updates };
+          return;
+      }
+      const { error } = await this.client.from('companies').update({
+          name: updates.name,
+          email: updates.email,
+          mobile: updates.mobile,
+          address: updates.address,
+          logo_url: updates.logoUrl
+      }).eq('id', companyId);
+      if (error) throw error;
+      await this.logAudit('HR_ADMIN', 'COMPANY_UPDATE', companyId, 'Updated Profile');
+  }
+
   // --- SITES ---
 
   async getAllSites(): Promise<Site[]> {
@@ -306,20 +333,38 @@ class DBService {
     await this.logAudit(adminId, approved ? 'EMP_APPROVED' : 'EMP_REJECTED', uan, 'Status Update');
   }
 
-  // --- SALARY ---
+  // --- SALARY (Module 5) ---
 
-  async uploadSalaryData(records: SalaryRecord[], actorId: string): Promise<number> {
+  async uploadSalaryData(records: SalaryRecord[], actorId: string): Promise<{processed: number, skipped: number}> {
+    // Basic Net Salary Calculation Logic handled in DB (Generated Column), 
+    // but we can compute here for Mock Mode or validation
+    
+    // Ensure uniqueness constraint: uan + month + year + site_id
+    
     if (this.mockMode) {
+        let processed = 0;
         records.forEach(r => {
-            const idx = MOCK_DB.salary_records.findIndex(x => x.employeeUan === r.employeeUan && x.month === r.month && x.year === r.year);
-            if (idx >= 0) MOCK_DB.salary_records[idx] = { ...r, id: MOCK_DB.salary_records[idx].id };
-            else MOCK_DB.salary_records.push({ ...r, id: `sal${Date.now()}-${Math.random()}` });
+             // Calculate Net Salary for Mock
+             const net = r.basic + r.hra + r.allowances - r.pfDeduction - r.taxDeduction;
+             const rWithNet = { ...r, netSalary: net };
+
+             const idx = MOCK_DB.salary_records.findIndex(x => 
+                 x.employeeUan === r.employeeUan && 
+                 x.month === r.month && 
+                 x.year === r.year && 
+                 x.siteId === r.siteId
+             );
+             
+             if (idx >= 0) MOCK_DB.salary_records[idx] = { ...rWithNet, id: MOCK_DB.salary_records[idx].id };
+             else MOCK_DB.salary_records.push({ ...rWithNet, id: `sal${Date.now()}-${Math.random()}` });
+             processed++;
         });
-        return records.length;
+        return { processed, skipped: 0 };
     }
 
     const dbRecords = records.map(rec => ({
         employee_uan: rec.employeeUan,
+        site_id: rec.siteId,
         month: rec.month,
         year: rec.year,
         basic: rec.basic,
@@ -328,27 +373,27 @@ class DBService {
         pf_deduction: rec.pfDeduction,
         tax_deduction: rec.taxDeduction,
         is_locked: true
+        // net_salary is generated by DB
     }));
 
-    const { error } = await this.client.from('salary_records').upsert(dbRecords, { onConflict: 'employee_uan, month, year' });
+    const { error } = await this.client.from('salary_records')
+      .upsert(dbRecords, { onConflict: 'employee_uan, month, year, site_id' });
+      
     if (error) throw new Error(error.message);
     
-    await this.logAudit(actorId, 'SALARY_UPLOAD', 'Batch', `${records.length} records processed`);
-    return records.length;
+    await this.logAudit(actorId, 'SALARY_UPLOAD', 'Batch', `${records.length} records processed for Site: ${records[0]?.siteId}`);
+    return { processed: records.length, skipped: 0 };
   }
 
   async getEmployeeSalaryView(uan: string, month: number, year: number): Promise<SalaryView | undefined> {
       if (this.mockMode) {
           const r = MOCK_DB.salary_records.find(x => x.employeeUan === uan && x.month === month && x.year === year);
           if (!r) return undefined;
-          return {
-              ...r,
-              netSalary: r.basic + r.hra + r.allowances - r.pfDeduction - r.taxDeduction
-          };
+          return r;
       }
       
       const { data, error } = await this.client
-        .from('salary_view')
+        .from('salary_records')
         .select('*')
         .eq('employee_uan', uan)
         .eq('month', month)
@@ -361,6 +406,7 @@ class DBService {
       return {
           id: data.id,
           employeeUan: data.employee_uan,
+          siteId: data.site_id,
           month: data.month,
           year: data.year,
           basic: data.basic,
@@ -449,7 +495,10 @@ class DBService {
       if (this.mockMode) return MOCK_DB.companies.find(c => c.id === id);
       const { data } = await this.client.from('companies').select('*').eq('id', id).maybeSingle();
       if (!data) return undefined;
-      return { id: data.id, clientId: data.client_id, name: data.name, logoUrl: data.logo_url };
+      return { 
+          id: data.id, clientId: data.client_id, name: data.name, logoUrl: data.logo_url,
+          email: data.email, mobile: data.mobile, address: data.address
+      };
   }
 
   async getAuditLogs(): Promise<AuditLog[]> {

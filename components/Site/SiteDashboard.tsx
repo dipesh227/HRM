@@ -47,66 +47,81 @@ const SiteDashboard: React.FC<Props> = ({ user }) => {
   const isSiteClosed = siteDetails?.status === SiteStatus.CLOSED;
   const complianceScore = Math.round((employees.filter(e => e.status === EmployeeStatus.APPROVED).length / (employees.length || 1)) * 100);
 
-  if (loading && !siteDetails) return <div className="h-full flex items-center justify-center gap-2 text-slate-500"><Loader2 className="animate-spin" /> Loading Site Data...</div>;
+  if (loading && !siteDetails) return <div className="h-full flex items-center justify-center gap-3 text-slate-500 font-medium"><Loader2 className="animate-spin w-6 h-6" /> Loading Site Data...</div>;
 
   return (
     <div className="flex flex-col h-full bg-ios-bg dark:bg-black relative transition-colors duration-200">
       
       {/* Site Header Card */}
-      <div className="px-4 py-6 max-w-7xl mx-auto w-full">
-        <div className="bg-white dark:bg-ios-dark-card rounded-3xl p-6 shadow-ios border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between md:items-center gap-6">
-          <div className="flex items-center gap-5">
+      <div className="px-4 py-6 md:py-8 max-w-7xl mx-auto w-full">
+        <div className="bg-white dark:bg-ios-dark-card rounded-[2rem] p-6 md:p-8 shadow-ios dark:shadow-none border border-white/50 dark:border-white/5 flex flex-col lg:flex-row justify-between lg:items-center gap-8">
+          
+          {/* Info Section */}
+          <div className="flex items-start gap-6">
              {siteDetails?.logoUrl ? (
-                 <img src={siteDetails.logoUrl} alt="Logo" className="w-16 h-16 rounded-2xl border border-slate-100 dark:border-slate-800 object-cover shadow-sm" />
+                 <img src={siteDetails.logoUrl} alt="Logo" className="w-20 h-20 rounded-2xl border border-slate-100 dark:border-white/10 object-cover shadow-sm bg-white dark:bg-white/5" />
              ) : (
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 flex items-center justify-center border border-white/20">
                     <Building2 className="w-8 h-8 text-slate-400" />
                 </div>
              )}
-             <div>
-                <div className="flex items-center gap-3 flex-wrap">
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{siteDetails?.name || 'Unknown Site'}</h2>
-                    {isSiteClosed && <Badge variant="danger">CLOSED</Badge>}
+             <div className="flex-1">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">{siteDetails?.name || 'Unknown Site'}</h2>
+                    {isSiteClosed && <Badge variant="danger" className="self-start">CLOSED</Badge>}
                 </div>
-                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{siteDetails?.address}</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base leading-relaxed font-medium">{siteDetails?.address}</p>
+                <div className="mt-3 flex gap-2">
+                    <Badge variant="neutral" className="text-[10px] tracking-wider uppercase">{siteDetails?.city}</Badge>
+                    <Badge variant="neutral" className="text-[10px] tracking-wider uppercase">{siteDetails?.state}</Badge>
+                </div>
              </div>
           </div>
           
-          <div className="flex items-center gap-4 w-full md:w-auto">
-             <div className="flex-1 md:flex-none bg-slate-50 dark:bg-slate-800/50 rounded-2xl px-4 py-2 text-center border border-slate-100 dark:border-slate-700">
-                <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Compliance</div>
-                <div className={`text-lg font-bold ${complianceScore === 100 ? 'text-green-600' : 'text-orange-500'}`}>{complianceScore}%</div>
+          {/* Actions Section */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto bg-slate-50 dark:bg-black/20 p-2 rounded-3xl border border-slate-100 dark:border-white/5">
+             <div className="flex-1 sm:flex-none flex items-center justify-between sm:justify-center gap-4 px-6 py-3 rounded-2xl bg-white dark:bg-white/5 shadow-sm border border-slate-100 dark:border-white/5">
+                <div className="text-xs text-slate-400 uppercase font-bold tracking-widest">Compliance</div>
+                <div className={`text-2xl font-bold ${complianceScore === 100 ? 'text-green-500' : 'text-orange-500'}`}>{complianceScore}%</div>
              </div>
              {!isSiteClosed && (
-                <Button onClick={() => setShowAddForm(true)} icon={UserPlus} className="h-14 md:h-auto flex-1 md:flex-none">Add Staff</Button>
+                <Button onClick={() => setShowAddForm(true)} icon={UserPlus} className="h-full flex-1 sm:flex-none shadow-glow">Add Staff</Button>
              )}
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 px-4 pb-8 max-w-7xl mx-auto w-full space-y-6">
+      <main className="flex-1 px-4 pb-12 max-w-7xl mx-auto w-full space-y-8">
         
-        {/* Stats Grid - Horizontal Scroll on Mobile */}
-        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 md:grid md:grid-cols-4 md:mx-0 md:px-0 md:overflow-visible">
-           <StatCard icon={Users} value={employees.length} title="Total Staff" color="blue" className="min-w-[140px]" />
-           <StatCard icon={AlertTriangle} value={employees.filter(e => e.status === EmployeeStatus.PENDING).length} title="Pending" color="orange" className="min-w-[140px]" />
-           <StatCard icon={ShieldCheck} value={employees.filter(e => e.status === EmployeeStatus.APPROVED).length} title="Active" color="green" className="min-w-[140px]" />
-           <StatCard icon={ClipboardCheck} value="100%" title="Docs" color="purple" className="min-w-[140px]" />
+        {/* Stats Grid - Horizontal Scroll on Mobile with Snap */}
+        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-4 px-4 snap-x md:grid md:grid-cols-4 md:mx-0 md:px-0 md:overflow-visible md:pb-0">
+           <div className="snap-start min-w-[160px] md:min-w-0">
+              <StatCard icon={Users} value={employees.length} title="Total Staff" color="blue" />
+           </div>
+           <div className="snap-start min-w-[160px] md:min-w-0">
+              <StatCard icon={AlertTriangle} value={employees.filter(e => e.status === EmployeeStatus.PENDING).length} title="Pending" color="orange" />
+           </div>
+           <div className="snap-start min-w-[160px] md:min-w-0">
+              <StatCard icon={ShieldCheck} value={employees.filter(e => e.status === EmployeeStatus.APPROVED).length} title="Active" color="green" />
+           </div>
+           <div className="snap-start min-w-[160px] md:min-w-0">
+              <StatCard icon={ClipboardCheck} value="100%" title="Docs" color="purple" />
+           </div>
         </div>
 
-        <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3 px-1">Staff Roster</h3>
+        <div className="space-y-4">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white px-2">Staff Roster</h3>
             <EmployeeList employees={employees} />
         </div>
       </main>
 
       {/* Notification Toast */}
       {feedback && (
-          <div className="fixed bottom-6 left-4 right-4 z-50 animate-slide-up">
-            <div className={`p-4 rounded-2xl shadow-ios-float backdrop-blur-xl border flex items-center gap-3 ${feedback.type === 'success' ? 'bg-white/90 border-green-200 text-green-800' : 'bg-white/90 border-red-200 text-red-800'}`}>
-                {feedback.type === 'success' ? <CheckCircle className="w-5 h-5"/> : <AlertTriangle className="w-5 h-5"/>}
-                <span className="font-medium text-sm flex-1">{feedback.message}</span>
+          <div className="fixed bottom-8 left-4 right-4 sm:left-auto sm:right-8 sm:w-96 z-50 animate-slide-up">
+            <div className={`p-4 rounded-3xl shadow-ios-float backdrop-blur-xl border flex items-center gap-3 ${feedback.type === 'success' ? 'bg-white/90 border-green-200 text-green-800' : 'bg-white/90 border-red-200 text-red-800'}`}>
+                {feedback.type === 'success' ? <CheckCircle className="w-6 h-6 flex-shrink-0"/> : <AlertTriangle className="w-6 h-6 flex-shrink-0"/>}
+                <span className="font-bold text-sm flex-1">{feedback.message}</span>
             </div>
           </div>
       )}

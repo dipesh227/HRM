@@ -12,19 +12,21 @@ export const InputField: React.FC<InputFieldProps> = ({
 }) => {
   return (
     <div className={`group ${className}`}>
-        <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider group-focus-within:text-blue-600 dark:group-focus-within:text-blue-400 transition-colors">
+        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide group-focus-within:text-ios-blue dark:group-focus-within:text-blue-400 transition-colors pl-1">
             {label}
         </label>
-        <div className="relative">
+        <div className="relative transition-transform duration-200 group-focus-within:scale-[1.01]">
             {Icon && (
-                <Icon className="absolute left-3 top-3.5 h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                <Icon className="absolute left-4 top-4 h-5 w-5 text-slate-400 group-focus-within:text-ios-blue transition-colors" />
             )}
             <input 
                 {...props}
-                className={`w-full ${Icon ? 'pl-10' : 'pl-4'} pr-4 py-3 bg-white dark:bg-slate-800 border ${error ? 'border-red-500' : 'border-slate-200 dark:border-slate-700'} text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`w-full ${Icon ? 'pl-12' : 'pl-5'} pr-5 py-4 bg-slate-50 dark:bg-slate-800/50 border ${error ? 'border-red-500' : 'border-slate-200 dark:border-slate-700/50'} text-slate-900 dark:text-white rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-ios-blue outline-none transition-all placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed text-[15px] font-medium shadow-sm`}
             />
         </div>
-        {error && <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>}
+        {error && <p className="text-red-500 text-xs font-medium mt-1.5 ml-1 flex items-center gap-1 animate-slide-up">
+           <span className="w-1 h-1 rounded-full bg-red-500"></span> {error}
+        </p>}
     </div>
   );
 };

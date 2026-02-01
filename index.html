@@ -5,14 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
     <title>Konark HR System</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
-              sans: ['-apple-system', 'BlinkMacSystemFont', 'Inter', 'Segoe UI', 'Roboto', 'sans-serif'],
+              sans: ['"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'Inter', 'Segoe UI', 'Roboto', 'sans-serif'],
             },
             colors: {
               ios: {
@@ -21,17 +23,33 @@
                 red: '#FF3B30',
                 orange: '#FF9500',
                 gray: '#8E8E93',
-                bg: '#F2F2F7',
+                bg: '#F5F5F7', // Slightly warmer grey for modern feel
                 card: '#FFFFFF',
                 dark: {
                     bg: '#000000',
                     card: '#1C1C1E',
+                    elevated: '#2C2C2E',
                 }
               }
             },
             boxShadow: {
-                'ios': '0 4px 20px rgba(0,0,0,0.08)',
-                'ios-float': '0 8px 30px rgba(0,0,0,0.12)',
+                'ios': '0 4px 24px rgba(0,0,0,0.06)', // Softer, more spread out
+                'ios-float': '0 12px 40px rgba(0,0,0,0.12)',
+                'glow': '0 0 20px rgba(0,122,255,0.3)',
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.4s ease-out',
+              'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              }
             }
           },
         },
@@ -41,9 +59,26 @@
       body {
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
-        /* Safe area for iPhone X+ */
         padding-bottom: env(safe-area-inset-bottom);
+        -webkit-tap-highlight-color: transparent;
       }
+      
+      /* Modern Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
       /* Hide scrollbar but keep functionality for horizontal pills */
       .no-scrollbar::-webkit-scrollbar {
         display: none;
@@ -51,6 +86,12 @@
       .no-scrollbar {
         -ms-overflow-style: none;
         scrollbar-width: none;
+      }
+
+      /* Better focus rings */
+      *:focus-visible {
+        outline: 2px solid #007AFF;
+        outline-offset: 2px;
       }
     </style>
     <script type="importmap">
@@ -71,7 +112,7 @@
 }
 </script>
 </head>
-  <body class="bg-ios-bg dark:bg-ios-dark-bg text-slate-900 dark:text-slate-100 transition-colors duration-200 selection:bg-ios-blue selection:text-white">
+  <body class="bg-ios-bg dark:bg-ios-dark-bg text-slate-900 dark:text-slate-100 transition-colors duration-300 selection:bg-ios-blue selection:text-white">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

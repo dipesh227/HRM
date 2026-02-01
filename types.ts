@@ -29,6 +29,9 @@ export interface Company {
   clientId: string;
   name: string;
   logoUrl: string;
+  email?: string;
+  mobile?: string;
+  address?: string;
 }
 
 export interface Site {
@@ -74,6 +77,7 @@ export interface Employee {
 export interface SalaryRecord {
   id: string;
   employeeUan: string; // Foreign Key to Employee UAN
+  siteId: string; // Foreign Key to Site
   month: number;
   year: number;
   basic: number;
@@ -81,12 +85,13 @@ export interface SalaryRecord {
   allowances: number;
   pfDeduction: number;
   taxDeduction: number;
+  netSalary: number; // Persisted calculated field
   isLocked: boolean;
 }
 
-// Computed View from DB
+// Computed View from DB (Kept for backward compat if needed, but logic moved to Record)
 export interface SalaryView extends SalaryRecord {
-  netSalary: number; // Computed column
+  // netSalary is now in SalaryRecord
 }
 
 export interface AuditLog {
