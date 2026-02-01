@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { User, Employee, SiteStatus, EmployeeStatus, Site } from '../../types';
 import { dbService } from '../../services/mockDb';
-import { Users, UserPlus, AlertTriangle, ShieldCheck, ClipboardCheck, Loader2, CheckCircle, X, Building2, Home } from 'lucide-react';
+import { Users, UserPlus, AlertTriangle, ShieldCheck, ClipboardCheck, Loader2, CheckCircle, X, Building2, Home, UserCircle } from 'lucide-react';
 import { Button } from '../UI/Button';
 import { Badge } from '../UI/Badge';
 import { StatCard } from '../UI/StatCard';
 import { EmployeeList } from './EmployeeList';
 import { NewEmployeeForm } from './NewEmployeeForm';
 import { MobileSidebar } from '../Layout/MobileSidebar';
+import { StaffProfile } from '../Common/StaffProfile';
 
 interface Props {
   user: User;
@@ -22,6 +23,7 @@ const SiteDashboard: React.FC<Props> = ({ user, isSidebarOpen, onSidebarClose, o
   const [siteDetails, setSiteDetails] = useState<Site | undefined>(undefined);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'staff' | 'profile'>('dashboard');
 
   const showNotification = (type: 'success' | 'error', message: string) => {
       setFeedback({ type, message });
@@ -51,10 +53,10 @@ const SiteDashboard: React.FC<Props> = ({ user, isSidebarOpen, onSidebarClose, o
   const isSiteClosed = siteDetails?.status === SiteStatus.CLOSED;
   const complianceScore = Math.round((employees.filter(e => e.status === EmployeeStatus.APPROVED).length / (employees.length || 1)) * 100);
 
-  // Mock Tabs for Sidebar consistency
   const tabs = [
       { id: 'dashboard', label: 'Dashboard', icon: Home },
       { id: 'staff', label: 'Staff List', icon: Users },
+      { id: 'profile', label: 'My Profile', icon: UserCircle },
   ];
 
   if (loading && !siteDetails) return <div className="h-full flex items-center justify-center gap-3 text-slate-500 font-medium"><Loader2 className="animate-spin w-6 h-6" /> Loading Site Data...</div>;
@@ -69,73 +71,82 @@ const SiteDashboard: React.FC<Props> = ({ user, isSidebarOpen, onSidebarClose, o
             onClose={onSidebarClose} 
             user={user} 
             tabs={tabs} 
-            activeTab="dashboard" 
-            onTabChange={() => {}} // Single view for now
-            // Site Incharge can only add regular staff
+            activeTab={activeTab} 
+            onTabChange={(id) => setActiveTab(id as any)} 
             onAddStaff={!isSiteClosed ? () => setShowAddForm(true) : undefined}
             onLogout={onLogout}
           />
       )}
 
-      {/* Site Header Card */}
-      <div className="px-3 py-4 md:px-4 md:py-8 max-w-7xl mx-auto w-full">
-        <div className="bg-white dark:bg-ios-dark-card rounded-3xl p-5 md:p-8 shadow-ios dark:shadow-none border border-white/50 dark:border-white/5 flex flex-col lg:flex-row justify-between lg:items-center gap-6">
-          
-          {/* Info Section */}
-          <div className="flex items-start gap-4">
-             {siteDetails?.logoUrl ? (
-                 <img src={siteDetails.logoUrl} alt="Logo" className="w-16 h-16 rounded-2xl border border-slate-100 dark:border-white/10 object-cover bg-white" />
-             ) : (
-                <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
-                    <Building2 className="w-8 h-8" />
-                </div>
-             )}
-             <div className="min-w-0 flex-1">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
-                    <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight truncate">{siteDetails?.name}</h2>
-                    {isSiteClosed && <Badge variant="danger" className="self-start">CLOSED</Badge>}
-                </div>
-                <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-1">{siteDetails?.address}</p>
-             </div>
+      {/* Main Content Area */}
+      {activeTab === 'profile' ? (
+          <div className="p-4 md:p-8">
+              <StaffProfile user={user} />
           </div>
-          
-          {/* Actions Section */}
-          <div className="flex gap-3 w-full lg:w-auto">
-             <div className="flex-1 lg:flex-none flex items-center justify-between gap-4 px-4 py-3 rounded-2xl bg-white dark:bg-white/5 border border-slate-100 dark:border-white/5 shadow-sm">
-                <div className="text-xs text-slate-400 uppercase font-bold tracking-widest">Compliance</div>
-                <div className={`text-xl font-bold ${complianceScore === 100 ? 'text-green-500' : 'text-orange-500'}`}>{complianceScore}%</div>
-             </div>
-             {!isSiteClosed && (
-                <Button onClick={() => setShowAddForm(true)} icon={UserPlus} className="flex-1 lg:flex-none shadow-lg shadow-blue-500/20 hidden md:flex">Add Staff</Button>
-             )}
-          </div>
-        </div>
-      </div>
+      ) : (
+          <>
+            {/* Site Header Card */}
+            <div className="px-3 py-4 md:px-4 md:py-8 max-w-7xl mx-auto w-full">
+                <div className="bg-white dark:bg-ios-dark-card rounded-3xl p-5 md:p-8 shadow-ios dark:shadow-none border border-white/50 dark:border-white/5 flex flex-col lg:flex-row justify-between lg:items-center gap-6">
+                
+                {/* Info Section */}
+                <div className="flex items-start gap-4">
+                    {siteDetails?.logoUrl ? (
+                        <img src={siteDetails.logoUrl} alt="Logo" className="w-16 h-16 rounded-2xl border border-slate-100 dark:border-white/10 object-cover bg-white" />
+                    ) : (
+                        <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                            <Building2 className="w-8 h-8" />
+                        </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+                            <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight truncate">{siteDetails?.name}</h2>
+                            {isSiteClosed && <Badge variant="danger" className="self-start">CLOSED</Badge>}
+                        </div>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-1">{siteDetails?.address}</p>
+                    </div>
+                </div>
+                
+                {/* Actions Section */}
+                <div className="flex gap-3 w-full lg:w-auto">
+                    <div className="flex-1 lg:flex-none flex items-center justify-between gap-4 px-4 py-3 rounded-2xl bg-white dark:bg-white/5 border border-slate-100 dark:border-white/5 shadow-sm">
+                        <div className="text-xs text-slate-400 uppercase font-bold tracking-widest">Compliance</div>
+                        <div className={`text-xl font-bold ${complianceScore === 100 ? 'text-green-500' : 'text-orange-500'}`}>{complianceScore}%</div>
+                    </div>
+                    {!isSiteClosed && (
+                        <Button onClick={() => setShowAddForm(true)} icon={UserPlus} className="flex-1 lg:flex-none shadow-lg shadow-blue-500/20 hidden md:flex">Add Staff</Button>
+                    )}
+                </div>
+                </div>
+            </div>
 
-      {/* Main Content */}
-      <main className="flex-1 px-3 md:px-4 pb-safe max-w-7xl mx-auto w-full space-y-6">
-        
-        {/* Stats Grid */}
-        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 -mx-3 px-3 snap-x md:grid md:grid-cols-4 md:mx-0 md:px-0 md:pb-0 touch-pan-x">
-           <div className="snap-start min-w-[140px] md:min-w-0">
-              <StatCard icon={Users} value={employees.length} title="Total Staff" color="blue" />
-           </div>
-           <div className="snap-start min-w-[140px] md:min-w-0">
-              <StatCard icon={AlertTriangle} value={employees.filter(e => e.status === EmployeeStatus.PENDING).length} title="Pending" color="orange" />
-           </div>
-           <div className="snap-start min-w-[140px] md:min-w-0">
-              <StatCard icon={ShieldCheck} value={employees.filter(e => e.status === EmployeeStatus.APPROVED).length} title="Active" color="green" />
-           </div>
-           <div className="snap-start min-w-[140px] md:min-w-0">
-              <StatCard icon={ClipboardCheck} value="100%" title="Docs" color="purple" />
-           </div>
-        </div>
+            <main className="flex-1 px-3 md:px-4 pb-safe max-w-7xl mx-auto w-full space-y-6">
+                {activeTab === 'dashboard' && (
+                    <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 -mx-3 px-3 snap-x md:grid md:grid-cols-4 md:mx-0 md:px-0 md:pb-0 touch-pan-x">
+                        <div className="snap-start min-w-[140px] md:min-w-0">
+                            <StatCard icon={Users} value={employees.length} title="Total Staff" color="blue" />
+                        </div>
+                        <div className="snap-start min-w-[140px] md:min-w-0">
+                            <StatCard icon={AlertTriangle} value={employees.filter(e => e.status === EmployeeStatus.PENDING).length} title="Pending" color="orange" />
+                        </div>
+                        <div className="snap-start min-w-[140px] md:min-w-0">
+                            <StatCard icon={ShieldCheck} value={employees.filter(e => e.status === EmployeeStatus.APPROVED).length} title="Active" color="green" />
+                        </div>
+                        <div className="snap-start min-w-[140px] md:min-w-0">
+                            <StatCard icon={ClipboardCheck} value="100%" title="Docs" color="purple" />
+                        </div>
+                    </div>
+                )}
 
-        <div className="space-y-3">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white px-1">Staff Roster</h3>
-            <EmployeeList employees={employees} />
-        </div>
-      </main>
+                {(activeTab === 'dashboard' || activeTab === 'staff') && (
+                    <div className="space-y-3">
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white px-1">Staff Roster</h3>
+                        <EmployeeList employees={employees} />
+                    </div>
+                )}
+            </main>
+          </>
+      )}
 
       {/* Notification Toast */}
       {feedback && (

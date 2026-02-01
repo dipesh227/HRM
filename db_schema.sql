@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS companies (
   client_id TEXT NOT NULL,
   name TEXT NOT NULL,
   logo_url TEXT,
+  signature_url TEXT, -- NEW: For Payslip Footer
+  stamp_url TEXT,     -- NEW: For Payslip Footer
   email TEXT,
   mobile TEXT,
   address TEXT

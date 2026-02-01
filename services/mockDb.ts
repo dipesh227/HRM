@@ -270,8 +270,15 @@ class DBService {
     const { data } = await this.client.from('companies').select('*').eq('id', companyId).maybeSingle();
     if (!data) return undefined;
     return { 
-        id: data.id, clientId: data.client_id, name: data.name, logoUrl: data.logo_url,
-        email: data.email, mobile: data.mobile, address: data.address
+        id: data.id, 
+        clientId: data.client_id, 
+        name: data.name, 
+        logoUrl: data.logo_url,
+        signatureUrl: data.signature_url, // Added
+        stampUrl: data.stamp_url,         // Added
+        email: data.email, 
+        mobile: data.mobile, 
+        address: data.address
     };
   }
 
@@ -281,13 +288,19 @@ class DBService {
           if (idx >= 0) MOCK_DB.companies[idx] = { ...MOCK_DB.companies[idx], ...updates };
           return;
       }
-      const { error } = await this.client.from('companies').update({
+      
+      const updatePayload: any = {
           name: updates.name,
           email: updates.email,
           mobile: updates.mobile,
           address: updates.address,
           logo_url: updates.logoUrl
-      }).eq('id', companyId);
+      };
+      
+      if (updates.signatureUrl !== undefined) updatePayload.signature_url = updates.signatureUrl;
+      if (updates.stampUrl !== undefined) updatePayload.stamp_url = updates.stampUrl;
+
+      const { error } = await this.client.from('companies').update(updatePayload).eq('id', companyId);
       if (error) throw error;
       await this.logAudit('HR_ADMIN', 'COMPANY_UPDATE', companyId, 'Updated Profile');
   }
@@ -302,8 +315,8 @@ class DBService {
   }
 
   async uploadSiteLogo(file: File): Promise<string> {
+      // Generic File Upload: Can be used for Logo, Signature, or Stamp
       // Base64 Encoding with Client-Side Compression
-      // Eliminates need for storage buckets and reduces payload size
       return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.readAsDataURL(file);
@@ -429,6 +442,13 @@ class DBService {
     const { data, error } = await this.client.from('employees').select('*').order('joined_date', { ascending: false });
     if (error) throw error;
     return (data || []).map(this.mapEmployee);
+  }
+
+  async getEmployeeByUAN(uan: string): Promise<Employee | undefined> {
+      if (this.mockMode) return MOCK_DB.employees.find(e => e.uan === uan);
+      const { data, error } = await this.client.from('employees').select('*').eq('uan', uan).maybeSingle();
+      if (error || !data) return undefined;
+      return this.mapEmployee(data);
   }
 
   async getPendingEmployees(): Promise<Employee[]> {
@@ -656,8 +676,15 @@ class DBService {
       const { data } = await this.client.from('companies').select('*').eq('id', id).maybeSingle();
       if (!data) return undefined;
       return { 
-          id: data.id, clientId: data.client_id, name: data.name, logoUrl: data.logo_url,
-          email: data.email, mobile: data.mobile, address: data.address
+          id: data.id, 
+          clientId: data.client_id, 
+          name: data.name, 
+          logoUrl: data.logo_url,
+          signatureUrl: data.signature_url,
+          stampUrl: data.stamp_url,
+          email: data.email, 
+          mobile: data.mobile, 
+          address: data.address
       };
   }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserRole, User } from '../../types';
 import { dbService } from '../../services/mockDb';
 import { UserCircle, Lock, Building, Users, Loader2, BadgeCheck, HardHat, Briefcase, ArrowRight } from 'lucide-react';
@@ -14,6 +14,22 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [formData, setFormData] = useState({ email: '', password: '', uan: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [defaultLogo, setDefaultLogo] = useState<string | null>(null);
+
+  // Default Company ID for the system (Used to fetch branding on login screen)
+  const DEFAULT_COMPANY_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+
+  useEffect(() => {
+    const fetchBranding = async () => {
+        try {
+            const comp = await dbService.getCompanyDetails(DEFAULT_COMPANY_ID);
+            if (comp?.logoUrl) setDefaultLogo(comp.logoUrl);
+        } catch (e) {
+            console.warn("Could not fetch login branding", e);
+        }
+    };
+    fetchBranding();
+  }, []);
 
   const updateForm = (key: string, value: string) => setFormData(prev => ({ ...prev, [key]: value }));
 
@@ -55,9 +71,15 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           
           {/* Header */}
           <div className="pt-10 pb-8 px-8 text-center relative">
-            <div className="inline-flex h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl items-center justify-center mb-6 shadow-glow shadow-blue-500/30 ring-4 ring-white/10">
-               <span className="text-2xl font-bold text-white tracking-tighter">KE</span>
-            </div>
+            {defaultLogo ? (
+                <div className="inline-flex h-20 w-20 rounded-2xl items-center justify-center mb-6 shadow-glow shadow-blue-500/30 ring-4 ring-white/10 overflow-hidden bg-white">
+                    <img src={defaultLogo} alt="Logo" className="w-full h-full object-contain p-1" />
+                </div>
+            ) : (
+                <div className="inline-flex h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl items-center justify-center mb-6 shadow-glow shadow-blue-500/30 ring-4 ring-white/10">
+                   <span className="text-2xl font-bold text-white tracking-tighter">KE</span>
+                </div>
+            )}
             <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Welcome Back</h1>
             <p className="text-slate-400 font-medium">Sign in to Konark Enterprise Portal</p>
           </div>

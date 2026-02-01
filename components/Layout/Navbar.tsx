@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, Notification } from '../../types';
-import { LogOut, Bell, Moon, Sun, Menu } from 'lucide-react';
+import { LogOut, Bell, Moon, Sun, Menu, Building } from 'lucide-react';
 
 interface NavbarProps {
   user: User;
@@ -11,10 +11,11 @@ interface NavbarProps {
   showNotifications: boolean;
   setShowNotifications: (show: boolean) => void;
   onMenuClick: () => void;
+  companyLogo?: string; // NEW PROP
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
-  user, theme, toggleTheme, onLogout, notifications, showNotifications, setShowNotifications, onMenuClick 
+  user, theme, toggleTheme, onLogout, notifications, showNotifications, setShowNotifications, onMenuClick, companyLogo
 }) => {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -37,7 +38,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="flex items-center gap-3 md:gap-4 max-w-[70%] group cursor-default">
                 <div className="relative shrink-0">
                     <div className="absolute inset-0 bg-blue-500 rounded-2xl blur-lg opacity-20 group-hover:opacity-40 transition-opacity"></div>
-                    <div className="relative bg-gradient-to-tr from-ios-blue to-blue-600 h-9 w-9 md:h-11 md:w-11 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold text-base md:text-lg shadow-lg shadow-blue-500/20 transform group-hover:scale-105 transition-transform duration-300">KE</div>
+                    {companyLogo ? (
+                        <img 
+                            src={companyLogo} 
+                            alt="Company Logo" 
+                            className="relative h-9 w-9 md:h-11 md:w-11 rounded-xl md:rounded-2xl object-cover bg-white shadow-lg shadow-blue-500/20 transform group-hover:scale-105 transition-transform duration-300" 
+                        />
+                    ) : (
+                        <div className="relative bg-gradient-to-tr from-ios-blue to-blue-600 h-9 w-9 md:h-11 md:w-11 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold text-base md:text-lg shadow-lg shadow-blue-500/20 transform group-hover:scale-105 transition-transform duration-300">
+                            KE
+                        </div>
+                    )}
                 </div>
                 <div className="flex flex-col min-w-0">
                     <span className="font-bold text-base md:text-lg text-slate-900 dark:text-white tracking-tight leading-none truncate">Konark HR</span>

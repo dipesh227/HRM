@@ -1,3 +1,4 @@
+
 export enum UserRole {
   HR = 'HR',
   SITE_INCHARGE = 'SITE_INCHARGE',
@@ -29,6 +30,8 @@ export interface Company {
   clientId: string;
   name: string;
   logoUrl: string;
+  signatureUrl?: string; // New Field
+  stampUrl?: string;     // New Field
   email?: string;
   mobile?: string;
   address?: string;

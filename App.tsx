@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Sidebar State
+  const [companyLogo, setCompanyLogo] = useState<string | undefined>(undefined); // Company Logo State
   
   // Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -59,6 +60,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (user) {
+        // Fetch Notifications
         const fetchNotifications = async () => {
             try {
                 const data = await dbService.getNotifications(user.id);
@@ -68,11 +70,28 @@ const App: React.FC = () => {
             }
         };
 
+        // Fetch Company Details (Logo)
+        const fetchCompanyLogo = async () => {
+            if (user.companyId) {
+                try {
+                    const comp = await dbService.getCompanyDetails(user.companyId);
+                    if (comp?.logoUrl) {
+                        setCompanyLogo(comp.logoUrl);
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch company logo", e);
+                }
+            }
+        };
+
         fetchNotifications();
+        fetchCompanyLogo();
+        
         const interval = setInterval(fetchNotifications, 3000);
         return () => clearInterval(interval);
     } else {
         setNotifications([]);
+        setCompanyLogo(undefined);
     }
   }, [user]);
 
@@ -80,6 +99,7 @@ const App: React.FC = () => {
     setUser(null);
     setShowNotifications(false);
     setIsSidebarOpen(false);
+    setCompanyLogo(undefined);
   };
 
   if (dbStatus === 'CHECKING') {
@@ -124,6 +144,7 @@ const App: React.FC = () => {
         showNotifications={showNotifications}
         setShowNotifications={setShowNotifications}
         onMenuClick={() => setIsSidebarOpen(true)}
+        companyLogo={companyLogo} // Pass the fetched logo
       />
 
       <div className="flex-1 overflow-y-auto relative bg-slate-100 dark:bg-slate-950">
@@ -145,8 +166,12 @@ const App: React.FC = () => {
             />
         )}
         {user.role === UserRole.EMPLOYEE && (
-            // Employee View usually doesn't need complex navigation, but passing simple sidebar just in case for consistency if needed
-             <EmployeeView user={user} />
+             <EmployeeView 
+                user={user} 
+                isSidebarOpen={isSidebarOpen}
+                onSidebarClose={() => setIsSidebarOpen(false)}
+                onLogout={handleLogout}
+             />
         )}
       </div>
     </div>

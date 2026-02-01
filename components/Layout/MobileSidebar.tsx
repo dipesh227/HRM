@@ -128,6 +128,16 @@ export const MobileSidebar: React.FC<MobileSidebarProps> = ({
 
                     <div className="h-px bg-slate-200 dark:bg-white/10 my-2"></div>
 
+                    {/* All Users: Profile Button */}
+                    <button 
+                        onClick={() => { onTabChange('profile'); onClose(); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors
+                            ${activeTab === 'profile' ? 'bg-blue-50 dark:bg-blue-900/10 text-ios-blue' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'}`}
+                    >
+                        <UserCircle className="w-5 h-5" />
+                        <span>My Profile</span>
+                    </button>
+
                     <button 
                         onClick={() => { onLogout(); onClose(); }}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"

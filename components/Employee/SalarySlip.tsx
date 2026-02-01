@@ -3,7 +3,7 @@ import { SalaryView, Company, Site, User } from '../../types';
 import { Button } from '../UI/Button';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Download } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 
 interface SalarySlipProps {
   user: User;
@@ -14,25 +14,59 @@ interface SalarySlipProps {
 
 const formatINR = (amount: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 
+const numberToWords = (num: number): string => {
+    const a = ['','One ','Two ','Three ','Four ','Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
+    const b = ['', '', 'Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+
+    if ((num = num.toString().length > 9 ? parseFloat(num.toString().substring(0, 9)) : num) === 0) return 'Zero';
+    
+    const n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+    if (!n) return '';
+
+    let str = '';
+    str += (parseInt(n[1]) !== 0) ? (a[Number(n[1])] || b[n[1][0] as any] + ' ' + a[n[1][1] as any]) + 'Crore ' : '';
+    str += (parseInt(n[2]) !== 0) ? (a[Number(n[2])] || b[n[2][0] as any] + ' ' + a[n[2][1] as any]) + 'Lakh ' : '';
+    str += (parseInt(n[3]) !== 0) ? (a[Number(n[3])] || b[n[3][0] as any] + ' ' + a[n[3][1] as any]) + 'Thousand ' : '';
+    str += (parseInt(n[4]) !== 0) ? (a[Number(n[4])] || b[n[4][0] as any] + ' ' + a[n[4][1] as any]) + 'Hundred ' : '';
+    str += (parseInt(n[5]) !== 0) ? ((str !== '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0] as any] + ' ' + a[n[5][1] as any]) : '';
+
+    return str + 'Only';
+};
+
 export const SalarySlip: React.FC<SalarySlipProps> = ({ user, salary, company, site }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   
+  // Explicit Calculation to ensure Logic Safety
+  const totalEarnings = (salary.basic || 0) + (salary.hra || 0) + (salary.allowances || 0);
+  const totalDeductions = (salary.pfDeduction || 0) + (salary.taxDeduction || 0);
+  const netPayable = totalEarnings - totalDeductions;
+  const netPayableWords = numberToWords(Math.round(netPayable));
+
   const handleDownload = async () => {
     const element = document.getElementById('salary-slip-content');
     if(!element) return;
     setIsDownloading(true);
     try {
-        await new Promise(resolve => setTimeout(resolve, 100)); // Wait for render
-        const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 1024 });
-        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        await new Promise(resolve => setTimeout(resolve, 200)); // Wait for render
+        const canvas = await html2canvas(element, { 
+            scale: 2, 
+            useCORS: true, 
+            allowTaint: true,
+            backgroundColor: '#ffffff'
+        });
+        
+        const imgData = canvas.toDataURL('image/png');
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
         const imgProps = pdf.getImageProperties(imgData);
         const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
-        pdf.save(`Payslip_${user.id}_${salary.year}-${salary.month}.pdf`);
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+        pdf.save(`Payslip_${user.id}_${new Date(0, salary.month-1).toLocaleString('default', {month:'short'})}_${salary.year}.pdf`);
     } catch (err) {
-        alert("Download failed.");
+        console.error(err);
+        alert("Failed to generate PDF. Please try again.");
     } finally {
         setIsDownloading(false);
     }
@@ -43,77 +77,197 @@ export const SalarySlip: React.FC<SalarySlipProps> = ({ user, salary, company, s
         {/* Scroll Container - Simulates paper on a desk for Mobile */}
         <div className="overflow-x-auto pb-4 -mx-3 px-3 md:mx-0 md:px-0">
             <div className="min-w-[700px] md:w-full mx-auto bg-white shadow-2xl rounded-sm">
-                <div id="salary-slip-content" className="p-8 md:p-12 text-slate-900 bg-white relative">
+                <div id="salary-slip-content" className="p-8 md:p-12 text-slate-900 bg-white relative overflow-hidden">
                     
-                    {/* Header */}
-                    <div className="flex justify-between border-b-2 border-slate-800 pb-6 mb-8">
-                        <div className="flex gap-4 items-center">
-                            {company.logoUrl && <img src={company.logoUrl} className="h-14 w-14 object-contain grayscale" crossOrigin="anonymous" alt="Logo" />}
+                    {/* Improved Watermark - Darker Opacity (0.15) */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
+                        {company.logoUrl ? (
+                             <img 
+                                src={company.logoUrl} 
+                                alt="Watermark" 
+                                className="w-[60%] opacity-[0.15] grayscale transform -rotate-12"
+                             />
+                        ) : (
+                             <div className="transform -rotate-45 text-7xl font-black uppercase text-slate-900 opacity-[0.05] whitespace-nowrap">
+                                {company.name}
+                             </div>
+                        )}
+                    </div>
+
+                    <div className="relative z-10">
+                        {/* Header */}
+                        <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-6">
+                            <div className="flex gap-5 items-center">
+                                {company.logoUrl ? (
+                                    <img src={company.logoUrl} className="h-20 w-20 object-contain" alt="Logo" />
+                                ) : (
+                                    <div className="h-16 w-16 bg-slate-200 flex items-center justify-center font-bold text-2xl text-slate-500 rounded">
+                                        {company.name.charAt(0)}
+                                    </div>
+                                )}
+                                <div>
+                                    <h1 className="text-2xl font-bold uppercase tracking-wide text-slate-900 leading-none mb-2">{company.name}</h1>
+                                    <p className="text-slate-600 text-sm max-w-sm leading-snug">{company.address || 'Corporate Office, India'}</p>
+                                    <div className="flex gap-3 text-xs text-slate-500 mt-2">
+                                        {company.email && <span>{company.email}</span>}
+                                        {company.mobile && <span>| {company.mobile}</span>}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <h2 className="text-3xl font-black text-slate-200 tracking-tighter uppercase">Payslip</h2>
+                                <p className="text-slate-900 font-bold text-lg mt-1">{new Date(0, salary.month-1).toLocaleString('default',{month:'long'})} {salary.year}</p>
+                                <p className="text-xs text-slate-500 mt-1">Generated: {new Date().toLocaleDateString()}</p>
+                            </div>
+                        </div>
+
+                        {/* Employee & Site Info */}
+                        <div className="grid grid-cols-2 gap-8 mb-8">
                             <div>
-                                <h1 className="text-xl font-bold uppercase tracking-wide">{company.name}</h1>
-                                <p className="text-slate-500 text-xs mt-1">{site.name}, {site.city}</p>
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 border-b border-slate-200 pb-1">Employee Details</h3>
+                                <div className="space-y-1">
+                                    <div className="flex"><span className="w-24 text-sm text-slate-500">Name:</span><span className="text-sm font-bold text-slate-900">{user.name}</span></div>
+                                    <div className="flex"><span className="w-24 text-sm text-slate-500">UAN / ID:</span><span className="text-sm font-mono text-slate-900">{user.id}</span></div>
+                                    <div className="flex"><span className="w-24 text-sm text-slate-500">Designation:</span><span className="text-sm font-medium text-slate-900">{user.role}</span></div>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 border-b border-slate-200 pb-1">Work Location</h3>
+                                <div className="space-y-1">
+                                    <div className="flex"><span className="w-24 text-sm text-slate-500">Site Name:</span><span className="text-sm font-bold text-slate-900">{site.name}</span></div>
+                                    <div className="flex"><span className="w-24 text-sm text-slate-500">Site Code:</span><span className="text-sm font-mono text-slate-900">{site.siteCode || 'N/A'}</span></div>
+                                    <div className="flex"><span className="w-24 text-sm text-slate-500">Location:</span><span className="text-sm font-medium text-slate-900">{site.city}, {site.state}</span></div>
+                                </div>
                             </div>
                         </div>
-                        <div className="text-right">
-                            <div className="bg-slate-900 text-white px-3 py-1 text-[10px] font-bold uppercase mb-2 inline-block tracking-widest">Payslip</div>
-                            <div className="text-lg font-bold">{new Date(0, salary.month-1).toLocaleString('default',{month:'short'})} {salary.year}</div>
-                        </div>
-                    </div>
 
-                    {/* Employee Info */}
-                    <div className="bg-slate-50 p-6 border border-slate-100 mb-8 grid grid-cols-3 gap-8">
-                        <div>
-                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Employee Name</label>
-                            <div className="font-bold text-sm">{user.name}</div>
-                        </div>
-                        <div>
-                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">UAN ID</label>
-                            <div className="font-mono text-sm">{user.id}</div>
-                        </div>
-                        <div>
-                            <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Designation</label>
-                            <div className="text-sm">{user.role}</div>
-                        </div>
-                    </div>
+                        {/* Salary Table */}
+                        <div className="border border-slate-300 mb-8">
+                            {/* Table Header */}
+                            <div className="grid grid-cols-2 bg-slate-100 border-b border-slate-300">
+                                <div className="grid grid-cols-2">
+                                    <div className="px-4 py-2 text-xs font-bold uppercase text-slate-600 border-r border-slate-300">Earnings</div>
+                                    <div className="px-4 py-2 text-xs font-bold uppercase text-slate-600 text-right border-r border-slate-300">Amount</div>
+                                </div>
+                                <div className="grid grid-cols-2">
+                                    <div className="px-4 py-2 text-xs font-bold uppercase text-slate-600 border-r border-slate-300">Deductions</div>
+                                    <div className="px-4 py-2 text-xs font-bold uppercase text-slate-600 text-right">Amount</div>
+                                </div>
+                            </div>
 
-                    {/* Financials */}
-                    <div className="grid grid-cols-2 border border-slate-200 mb-8">
-                        <div className="border-r border-slate-200">
-                            <div className="bg-slate-100 px-4 py-2 text-[10px] font-bold uppercase text-slate-600 tracking-wider border-b border-slate-200">Earnings</div>
-                            <div className="p-4 space-y-3">
-                                <div className="flex justify-between text-sm"><span>Basic Salary</span><span className="font-medium">{formatINR(salary.basic)}</span></div>
-                                <div className="flex justify-between text-sm"><span>HRA</span><span className="font-medium">{formatINR(salary.hra)}</span></div>
-                                <div className="flex justify-between text-sm"><span>Allowances</span><span className="font-medium">{formatINR(salary.allowances)}</span></div>
+                            {/* Table Body */}
+                            <div className="grid grid-cols-2 h-48">
+                                {/* Earnings Column */}
+                                <div className="border-r border-slate-300 p-0 relative">
+                                    <div className="grid grid-cols-2 border-b border-slate-100 px-4 py-2">
+                                        <span className="text-sm text-slate-700">Basic Salary</span>
+                                        <span className="text-sm font-medium text-right">{formatINR(salary.basic)}</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 border-b border-slate-100 px-4 py-2">
+                                        <span className="text-sm text-slate-700">House Rent Allowance</span>
+                                        <span className="text-sm font-medium text-right">{formatINR(salary.hra)}</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 border-b border-slate-100 px-4 py-2">
+                                        <span className="text-sm text-slate-700">Special Allowances</span>
+                                        <span className="text-sm font-medium text-right">{formatINR(salary.allowances)}</span>
+                                    </div>
+                                    
+                                    {/* Total Earnings at bottom of cell */}
+                                    <div className="absolute bottom-0 left-0 right-0 bg-slate-50 border-t border-slate-300 px-4 py-2 grid grid-cols-2">
+                                        <span className="text-sm font-bold text-slate-800">Total Earnings</span>
+                                        <span className="text-sm font-bold text-right text-slate-800">{formatINR(totalEarnings)}</span>
+                                    </div>
+                                </div>
+
+                                {/* Deductions Column */}
+                                <div className="p-0 relative">
+                                    <div className="grid grid-cols-2 border-b border-slate-100 px-4 py-2">
+                                        <span className="text-sm text-slate-700">Provident Fund</span>
+                                        <span className="text-sm font-medium text-right text-red-600">{formatINR(salary.pfDeduction)}</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 border-b border-slate-100 px-4 py-2">
+                                        <span className="text-sm text-slate-700">Professional Tax</span>
+                                        <span className="text-sm font-medium text-right text-red-600">{formatINR(salary.taxDeduction)}</span>
+                                    </div>
+
+                                    {/* Total Deductions at bottom of cell */}
+                                    <div className="absolute bottom-0 left-0 right-0 bg-slate-50 border-t border-slate-300 px-4 py-2 grid grid-cols-2">
+                                        <span className="text-sm font-bold text-slate-800">Total Deductions</span>
+                                        <span className="text-sm font-bold text-right text-red-600">{formatINR(totalDeductions)}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div>
-                            <div className="bg-slate-100 px-4 py-2 text-[10px] font-bold uppercase text-slate-600 tracking-wider border-b border-slate-200">Deductions</div>
-                            <div className="p-4 space-y-3">
-                                <div className="flex justify-between text-sm text-red-600"><span>Provident Fund</span><span>-{formatINR(salary.pfDeduction)}</span></div>
-                                <div className="flex justify-between text-sm text-red-600"><span>Professional Tax</span><span>-{formatINR(salary.taxDeduction)}</span></div>
+
+                        {/* Net Pay Section */}
+                        <div className="flex flex-col md:flex-row justify-between items-end gap-4 border-t-2 border-slate-900 pt-6">
+                            <div className="text-left w-full">
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Net Pay in Words</p>
+                                <p className="text-sm font-bold text-slate-800 italic bg-slate-100 p-2 rounded border border-slate-200">
+                                    {netPayableWords} Rupees
+                                </p>
+                            </div>
+                            <div className="flex flex-col items-end min-w-[200px]">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Net Payable</span>
+                                <span className="text-3xl font-black text-slate-900 bg-yellow-300 px-3 py-1 -rotate-1 shadow-sm">
+                                    {formatINR(netPayable)}
+                                </span>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Net Pay */}
-                    <div className="flex justify-end">
-                        <div className="bg-slate-900 text-white p-6 w-64 text-right shadow-lg relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                            <div className="text-[10px] uppercase opacity-60 tracking-widest mb-1">Net Payable</div>
-                            <div className="text-2xl font-bold">{formatINR(salary.netSalary)}</div>
+                        {/* Middle Stamp Section (Left/Center Aligned) */}
+                        <div className="mt-8 ml-12 h-24 relative">
+                            {company.stampUrl && (
+                                <div className="absolute top-2 left-0 transform -rotate-6">
+                                    <img 
+                                        src={company.stampUrl} 
+                                        alt="Official Stamp" 
+                                        className="h-24 w-24 object-contain opacity-90" 
+                                    />
+                                </div>
+                            )}
                         </div>
-                    </div>
 
-                    <div className="text-center text-[10px] text-slate-400 pt-8 mt-8 border-t border-dashed border-slate-200">
-                        This is a system generated document from Konark HR System. No signature required.
+                        {/* Footer */}
+                        <div className="mt-4 pt-6 border-t border-dashed border-slate-300 flex justify-between items-end relative">
+                            <div className="text-xs text-slate-400">
+                                <p className="font-bold">Note:</p>
+                                <p>This is a computer-generated document and does not require a physical signature.</p>
+                                <p>For any discrepancies, please contact HR immediately.</p>
+                            </div>
+                            <div className="text-right flex flex-col items-end">
+                                {/* Signature Area with Stamp Behind */}
+                                <div className="relative h-20 w-40 mb-2">
+                                    {/* Stamp behind signature (if desired as '1 mohr ke puche') */}
+                                    {company.stampUrl && (
+                                        <img 
+                                            src={company.stampUrl} 
+                                            alt="Stamp" 
+                                            className="absolute right-2 bottom-0 h-20 w-20 opacity-40 object-contain rotate-[-12deg]" 
+                                        />
+                                    )}
+                                    {/* Signature */}
+                                    {company.signatureUrl && (
+                                        <img 
+                                            src={company.signatureUrl} 
+                                            alt="Authorized Signature" 
+                                            className="absolute right-0 bottom-2 h-16 w-36 object-contain z-10" 
+                                        />
+                                    )}
+                                </div>
+                                
+                                <div className="h-0 w-40 border-b border-slate-300 mb-1"></div>
+                                <p className="text-xs font-bold text-slate-500 uppercase">Authorized Signatory</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
         <div className="flex justify-center">
-            <Button onClick={handleDownload} isLoading={isDownloading} variant="primary" icon={Download} className="shadow-xl">
-                Download PDF Copy
+            <Button onClick={handleDownload} isLoading={isDownloading} variant="primary" icon={Download} className="shadow-xl px-8">
+                {isDownloading ? 'Generating PDF...' : 'Download Payslip PDF'}
             </Button>
         </div>
     </div>
