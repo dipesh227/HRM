@@ -1,18 +1,16 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { 
   UserRole, SiteStatus, EmployeeStatus, EmployeeRole, 
-  User, Company, Site, Employee, SalaryRecord,
-  AuditLog, Notification, SystemConfig
+  User, Company, Site, Employee, SalaryRecord, SalaryView,
+  AuditLog, Notification
 } from '../types';
 
 // ============================================================================
 // CONFIGURATION
-// Reads from Environment Variables (Vite standard)
 // ============================================================================
 const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
 
-// Initialize Supabase
 let supabase: SupabaseClient | null = null;
 
 if (SUPABASE_URL && SUPABASE_ANON_KEY) {
@@ -31,88 +29,96 @@ export type ConnectionStatus = {
 
 class DBService {
   
-  // --- CONNECTION CHECK (Level 1 & Level 2) ---
-
+  // --- CONNECTION CHECK ---
   async checkConnection(): Promise<ConnectionStatus> {
-      if (!supabase) return { connected: false, error: "Missing Environment Variables", code: 'AUTH' };
-      
+      if (!supabase) return { connected: false, error: "Missing Env Vars", code: 'AUTH' };
       try {
-          // Level 1 & 2 Combined Check
-          // We try to select from 'companies'.
-          // If network/auth fails -> Level 1 Error
-          // If table doesn't exist -> Level 2 Error (Schema Missing)
-          
-          const { error } = await supabase.from('companies').select('id', { count: 'exact', head: true });
+          // Attempt to fetch 1 row from companies to verify Schema and Auth
+          const { data, error } = await supabase.from('companies').select('id').limit(1);
           
           if (error) {
-              // Level 2: Connected but Schema Missing (Postgres Code 42P01 = undefined_table)
-              if (error.code === '42P01') {
-                  return { connected: false, error: "Schema missing: 'companies' table not found.", code: 'NO_SCHEMA' };
-              }
-              // Level 1: Auth Failed
-              if (error.code === 'PGRST301' || error.message.includes('JWT') || error.code === '401') {
-                  return { connected: false, error: "Invalid API Key or JWT expired.", code: 'AUTH' };
-              }
-              // Level 1: Network/Host Error
+              // 42P01: Undefined Table (Schema missing)
+              if (error.code === '42P01') return { connected: false, error: "Schema missing: 'companies' table not found.", code: 'NO_SCHEMA' };
+              // 401/PGRST301: Auth Error
+              if (error.code === 'PGRST301' || error.code === '401') return { connected: false, error: "Invalid API Key.", code: 'AUTH' };
+              // Network/Other
               return { connected: false, error: error.message, code: 'NETWORK' };
           }
-
           return { connected: true };
       } catch (e: any) {
-          return { connected: false, error: e.message || "Network connection failed", code: 'NETWORK' };
+          return { connected: false, error: e.message || "Connection refused", code: 'NETWORK' };
       }
   }
 
-  // --- HELPER ---
   private get client(): SupabaseClient {
-      if (!supabase) throw new Error("Supabase not initialized");
+      if (!supabase) throw new Error("Database client not initialized");
       return supabase;
   }
 
-  // --- AUTH ---
+  // --- AUTHENTICATION ---
   
-  async login(identifier: string, password?: string): Promise<User> {
-    const cleanId = identifier.trim();
-    if (!cleanId) throw new Error("Please enter a valid User ID or Email.");
+  // 1. HR Login (Supabase Auth)
+  async loginHR(email: string, password: string): Promise<User> {
+    const { data: authData, error: authError } = await this.client.auth.signInWithPassword({ email, password });
     
-    // We query the 'users' table directly
-    let query = this.client.from('users').select('*');
-    
-    // Determine if email or UAN based on input format
-    const isEmail = cleanId.includes('@');
-    if (isEmail) {
-        query = query.eq('email', cleanId);
-    } else {
-        query = query.eq('uan', cleanId);
-    }
+    if (authError) throw new Error(authError.message);
+    if (!authData.user) throw new Error("Authentication failed: No user returned.");
 
-    // Use maybeSingle() to handle 0 or 1 result gracefully
-    const { data, error } = await query.maybeSingle();
+    // Fetch Profile from 'users' table
+    // use maybeSingle() to avoid error if profile doesn't exist yet
+    const { data: profile, error: profileError } = await this.client
+        .from('users')
+        .select('*')
+        .eq('id', authData.user.id)
+        .maybeSingle();
 
-    if (error) {
-        console.error("Login Query Error:", error);
-        throw new Error("System Error: " + error.message);
-    }
+    if (profileError) throw new Error("DB Error fetching profile: " + profileError.message);
+    if (!profile) throw new Error("HR Profile not found. Please contact Administrator to seed your user record.");
 
-    if (!data) {
-        throw new Error("Account not found. Please check your ID.");
-    }
+    const user: User = {
+        id: profile.id,
+        identityType: 'UUID',
+        email: profile.email,
+        name: profile.name,
+        role: UserRole.HR,
+        companyId: profile.company_id
+    };
 
-    const user = this.mapUser(data);
-
-    // Password Check
-    // Note: Logic preserved for demo - Employees might not have password enforced in UI preset
-    if (user.role !== UserRole.EMPLOYEE) {
-        if (!password) throw new Error("Password is required.");
-        
-        if (user.password !== password) {
-             await this.logAudit('Unknown', 'LOGIN_FAILED', cleanId, 'Invalid credentials', 'WARN');
-             throw new Error("Incorrect password.");
-        }
-    }
-
-    await this.logAudit(user.name, 'LOGIN_SUCCESS', 'Auth', 'User session started');
+    await this.logAudit(user.id, 'LOGIN_SUCCESS', 'Auth', 'HR Session Started');
     return user;
+  }
+
+  // 2. Staff Login (UAN Based - Passwordless)
+  async loginStaff(uan: string): Promise<User> {
+      const cleanUan = uan.trim();
+      if (!/^\d{12}$/.test(cleanUan)) throw new Error("UAN must be exactly 12 digits.");
+
+      const { data: emp, error } = await this.client
+          .from('employees')
+          .select('*')
+          .eq('uan', cleanUan)
+          .maybeSingle();
+
+      if (error) throw new Error("DB Error: " + error.message);
+      if (!emp) throw new Error("Employee not found. Please check UAN.");
+      
+      // Determine Role
+      let sysRole = UserRole.EMPLOYEE;
+      if (['Supervisor', 'Safety Officer'].includes(emp.role)) {
+          sysRole = UserRole.SITE_INCHARGE;
+      }
+
+      const user: User = {
+          id: emp.uan,
+          identityType: 'UAN',
+          name: emp.name,
+          role: sysRole,
+          companyId: emp.company_id,
+          siteId: emp.site_id
+      };
+
+      await this.logAudit(user.id, 'LOGIN_SUCCESS', 'Auth', `Staff Login: ${sysRole}`);
+      return user;
   }
 
   // --- HR MODULE ---
@@ -124,7 +130,6 @@ class DBService {
         this.client.from('employees').select('*', { count: 'exact', head: true }),
         this.client.from('employees').select('*', { count: 'exact', head: true }).eq('status', 'PENDING')
     ]);
-
     const activeSites = await this.client.from('sites').select('*', { count: 'exact', head: true }).eq('status', 'ACTIVE');
 
     return {
@@ -136,18 +141,18 @@ class DBService {
     };
   }
 
-  // --- SITES CRUD ---
+  // --- SITES ---
 
   async getAllSites(): Promise<Site[]> {
-    const { data, error } = await this.client.from('sites').select('*');
+    const { data, error } = await this.client.from('sites').select('*').order('name');
     if (error) throw error;
-    return data.map(this.mapSite);
+    return (data || []).map(this.mapSite);
   }
 
   async createSite(site: Partial<Site>): Promise<void> {
-    const dbSite = {
-        name: site.name,
+    const { error } = await this.client.from('sites').insert({
         company_id: site.companyId,
+        name: site.name,
         site_code: site.siteCode,
         address: site.address,
         city: site.city,
@@ -157,147 +162,39 @@ class DBService {
         mobile: site.mobile,
         manager_name: site.managerName,
         manager_mobile: site.managerMobile,
-        status: SiteStatus.ACTIVE,
-        logo_url: site.logoUrl
-    };
-
-    const { error } = await this.client.from('sites').insert(dbSite);
+        logo_url: site.logoUrl,
+        status: SiteStatus.ACTIVE
+    });
     if (error) throw error;
-    await this.logAudit('Super HR', 'CREATE_SITE', site.name || 'New Site', 'New site added');
-  }
-
-  async updateSite(id: string, updates: Partial<Site>): Promise<void> {
-    const dbUpdates: any = {};
-    if (updates.name) dbUpdates.name = updates.name;
-    if (updates.siteCode) dbUpdates.site_code = updates.siteCode;
-    if (updates.address) dbUpdates.address = updates.address;
-    if (updates.city) dbUpdates.city = updates.city;
-    if (updates.state) dbUpdates.state = updates.state;
-    if (updates.pincode) dbUpdates.pincode = updates.pincode;
-    if (updates.email) dbUpdates.email = updates.email;
-    if (updates.mobile) dbUpdates.mobile = updates.mobile;
-    if (updates.managerName) dbUpdates.manager_name = updates.managerName;
-    if (updates.managerMobile) dbUpdates.manager_mobile = updates.managerMobile;
-    if (updates.logoUrl) dbUpdates.logo_url = updates.logoUrl;
-
-    const { error } = await this.client.from('sites').update(dbUpdates).eq('id', id);
-    if (error) throw error;
-    await this.logAudit('Super HR', 'UPDATE_SITE', updates.name || id, 'Site details updated');
   }
 
   async deleteSite(id: string): Promise<void> {
-     const { count: empCount } = await this.client.from('employees').select('*', { count: 'exact', head: true }).eq('site_id', id);
-     if (empCount && empCount > 0) throw new Error(`Cannot delete site. It has ${empCount} active employees.`);
-
-     const { error } = await this.client.from('sites').delete().eq('id', id);
-     if (error) throw error;
-     await this.logAudit('Super HR', 'DELETE_SITE', id, 'Site deleted', 'WARN');
-  }
-
-  async toggleSiteStatus(siteId: string): Promise<Site | null> {
-    const { data: site } = await this.client.from('sites').select('status').eq('id', siteId).single();
-    if (!site) return null;
-
-    const newStatus = site.status === 'ACTIVE' ? SiteStatus.CLOSED : SiteStatus.ACTIVE;
-    
-    const { data, error } = await this.client.from('sites').update({ status: newStatus }).eq('id', siteId).select().single();
-    if (error) throw error;
-
-    await this.logAudit('Super HR', 'SITE_STATUS_CHANGE', siteId, `Status changed to ${newStatus}`, 'WARN');
-    return this.mapSite(data);
-  }
-
-  // --- USERS / INCHARGES CRUD ---
-
-  async getAllIncharges(): Promise<User[]> {
-      const { data, error } = await this.client.from('users').select('*').eq('role', 'SITE_INCHARGE');
-      if (error) return [];
-      return data.map(this.mapUser);
-  }
-
-  async createSystemUser(user: Partial<User>): Promise<void> {
-      if(!user.uan || !user.password || !user.role) throw new Error("Missing credentials");
-
-      const newUser = {
-          uan: user.uan,
-          email: user.email,
-          password: user.password,
-          name: user.name || 'User',
-          role: user.role,
-          company_id: user.companyId,
-          site_id: user.siteId
-      };
-      
-      const { error } = await this.client.from('users').insert(newUser);
+      const { error } = await this.client.from('sites').delete().eq('id', id);
       if (error) throw error;
-
-      await this.logAudit('Super HR', 'CREATE_USER', user.name || 'User', `Role: ${user.role}`);
   }
 
-  async deleteUser(id: string): Promise<void> {
-      const { error } = await this.client.from('users').delete().eq('id', id);
-      if (error) throw error;
-      await this.logAudit('Super HR', 'DELETE_USER', id, 'User deleted', 'WARN');
-  }
-
-  // --- EMPLOYEE CRUD ---
+  // --- EMPLOYEES (UAN Key) ---
 
   async getPendingEmployees(): Promise<Employee[]> {
     const { data, error } = await this.client.from('employees').select('*').eq('status', 'PENDING');
     if (error) return [];
-    return data.map(this.mapEmployee);
+    return (data || []).map(this.mapEmployee);
   }
 
-  async approveEmployee(employeeId: string, approved: boolean): Promise<void> {
+  async approveEmployee(uan: string, approved: boolean, adminId: string): Promise<void> {
     const status = approved ? EmployeeStatus.APPROVED : EmployeeStatus.REJECTED;
-    
-    const { data: emp, error: fetchErr } = await this.client.from('employees').select('*').eq('id', employeeId).single();
-    if (fetchErr || !emp) throw new Error("Employee not found");
-
-    const { error } = await this.client.from('employees').update({ status }).eq('id', employeeId);
+    const { error } = await this.client.from('employees').update({ status }).eq('uan', uan);
     if (error) throw error;
-
-    await this.logAudit('Super HR', approved ? 'EMP_APPROVED' : 'EMP_REJECTED', emp.name, `UAN: ${emp.uan}`, 'INFO');
-    
-    // Auto-create User account for employee if approved
-    if (approved) {
-       const { data: existing } = await this.client.from('users').select('*').eq('uan', emp.uan).single();
-       if (!existing) {
-           await this.client.from('users').insert({
-               uan: emp.uan,
-               name: emp.name,
-               role: UserRole.EMPLOYEE,
-               password: '123', // Default Password
-               company_id: emp.company_id,
-               site_id: emp.site_id,
-               email: `${emp.uan.toLowerCase()}@konark.temp` 
-           });
-       }
-    }
+    await this.logAudit(adminId, approved ? 'EMP_APPROVED' : 'EMP_REJECTED', uan, 'Status Update');
   }
 
-  async searchEmployees(query: string): Promise<Employee[]> {
-      if (!query) return [];
-      const { data, error } = await this.client
-        .from('employees')
-        .select('*')
-        .or(`name.ilike.%${query}%,uan.ilike.%${query}%`)
-        .limit(10);
-        
-      if (error) return [];
-      return data.map(this.mapEmployee);
-  }
+  // --- SALARY (UAN FK, View Reading) ---
 
-  async getAllEmployeesMap(): Promise<Map<string, string>> {
-     const { data } = await this.client.from('employees').select('id, uan');
-     const map = new Map<string, string>();
-     data?.forEach((e: any) => map.set(e.uan, e.id));
-     return map;
-  }
-
-  async uploadSalaryData(records: SalaryRecord[]): Promise<number> {
+  async uploadSalaryData(records: SalaryRecord[], actorId: string): Promise<number> {
+    // Insert into salary_records (Raw data)
+    // We map frontend model to DB columns
     const dbRecords = records.map(rec => ({
-        employee_id: rec.employeeId,
+        employee_uan: rec.employeeUan,
         month: rec.month,
         year: rec.year,
         basic: rec.basic,
@@ -305,248 +202,142 @@ class DBService {
         allowances: rec.allowances,
         pf_deduction: rec.pfDeduction,
         tax_deduction: rec.taxDeduction,
-        net_salary: rec.netSalary,
         is_locked: true
     }));
 
-    const { data, error } = await this.client.from('salary_records').upsert(dbRecords, { onConflict: 'employee_id, month, year' }).select();
+    const { error } = await this.client.from('salary_records').upsert(dbRecords, { onConflict: 'employee_uan, month, year' });
+    if (error) throw new Error(error.message);
     
-    if (error) {
-        console.error(error);
-        throw new Error("Failed to upload salary data");
-    }
-    
-    await this.logAudit('Super HR', 'SALARY_UPLOAD', 'System', `${records.length} records processed`, 'INFO');
-    return records.length; 
+    await this.logAudit(actorId, 'SALARY_UPLOAD', 'Batch', `${records.length} records processed`);
+    return records.length;
   }
 
-  // --- SITE INCHARGE METHODS ---
+  async getEmployeeSalaryView(uan: string, month: number, year: number): Promise<SalaryView | undefined> {
+      // Read from VIEW which has 'net_salary'
+      const { data, error } = await this.client
+        .from('salary_view')
+        .select('*')
+        .eq('employee_uan', uan)
+        .eq('month', month)
+        .eq('year', year)
+        .maybeSingle();
+      
+      if (error) throw error;
+      if (!data) return undefined;
+      
+      return {
+          id: data.id,
+          employeeUan: data.employee_uan,
+          month: data.month,
+          year: data.year,
+          basic: data.basic,
+          hra: data.hra,
+          allowances: data.allowances,
+          pfDeduction: data.pf_deduction,
+          taxDeduction: data.tax_deduction,
+          netSalary: data.net_salary, // Computed Column
+          isLocked: data.is_locked
+      };
+  }
 
+  async getEmployeeSalaryHistory(uan: string): Promise<{month: number, year: number}[]> {
+      const { data } = await this.client.from('salary_records')
+        .select('month, year')
+        .eq('employee_uan', uan)
+        .order('year', { ascending: false })
+        .order('month', { ascending: false });
+      return data || [];
+  }
+
+  // --- SITE INCHARGE ---
+  
   async getSiteEmployees(siteId: string): Promise<Employee[]> {
-    const { data, error } = await this.client.from('employees').select('*').eq('site_id', siteId);
-    if (error) return [];
-    return data.map(this.mapEmployee);
-  }
-
-  async getSiteDetails(siteId: string): Promise<Site | undefined> {
-    const { data, error } = await this.client.from('sites').select('*').eq('id', siteId).single();
-    if (error || !data) return undefined;
-    return this.mapSite(data);
+      const { data } = await this.client.from('employees').select('*').eq('site_id', siteId);
+      return (data || []).map(this.mapEmployee);
   }
 
   async addEmployee(emp: Employee): Promise<void> {
-    const dbEmp = {
-        name: emp.name,
-        uan: emp.uan,
-        role: emp.role,
-        company_id: emp.companyId,
-        site_id: emp.siteId,
-        status: EmployeeStatus.PENDING,
-        added_by: emp.addedBy,
-        joined_date: emp.joinedDate
-    };
+      if (!/^\d{12}$/.test(emp.uan)) throw new Error("UAN must be 12 digits.");
+      
+      const dbEmp = {
+          uan: emp.uan,
+          name: emp.name,
+          role: emp.role,
+          company_id: emp.companyId,
+          site_id: emp.siteId,
+          status: EmployeeStatus.PENDING,
+          added_by: emp.addedBy,
+          joined_date: emp.joinedDate
+      };
 
-    const { error } = await this.client.from('employees').insert(dbEmp);
-    if (error) throw error;
-    await this.logAudit('Site Incharge', 'EMP_CREATE', emp.name, 'Pending HR Approval');
+      const { error } = await this.client.from('employees').insert(dbEmp);
+      if (error) throw error;
+      
+      // Note: RLS allows INSERT by anon if status=PENDING, effectively allowing UAN users to onboard.
+      await this.logAudit(emp.addedBy, 'EMP_CREATE', emp.uan, 'Onboarding');
   }
 
-  // --- EMPLOYEE METHODS ---
-
-  async getEmployeeSalaryHistory(uan: string): Promise<{month: number, year: number}[]> {
-    const { data: emp } = await this.client.from('employees').select('id').eq('uan', uan).single();
-    if (!emp) return [];
-
-    const { data, error } = await this.client
-        .from('salary_records')
-        .select('month, year')
-        .eq('employee_id', emp.id)
-        .order('year', { ascending: false })
-        .order('month', { ascending: false });
-
-    if (error) return [];
-    return data;
+  async getSiteDetails(siteId: string): Promise<Site | undefined> {
+      const { data, error } = await this.client.from('sites').select('*').eq('id', siteId).maybeSingle();
+      if (error) console.error(error);
+      return data ? this.mapSite(data) : undefined;
   }
 
-  async getEmployeeSalary(uan: string, month: number, year: number): Promise<SalaryRecord | undefined> {
-    const { data: emp } = await this.client.from('employees').select('id').eq('uan', uan).single();
-    if (!emp) return undefined;
-
-    const { data, error } = await this.client
-        .from('salary_records')
-        .select('*')
-        .eq('employee_id', emp.id)
-        .eq('month', month)
-        .eq('year', year)
-        .single();
-    
-    if (error || !data) return undefined;
-    return this.mapSalary(data);
-  }
-
-  async getEmployeeDetails(uan: string): Promise<Employee | undefined> {
-    const { data, error } = await this.client.from('employees').select('*').eq('uan', uan).single();
-    if (error || !data) return undefined;
-    return this.mapEmployee(data);
-  }
-
-  async getCompanyDetails(companyId: string): Promise<Company | undefined> {
-    const { data, error } = await this.client.from('companies').select('*').eq('id', companyId).single();
-    if (error || !data) return undefined;
-    return {
-        id: data.id,
-        clientId: data.client_id,
-        name: data.name,
-        logoUrl: data.logo_url
-    };
-  }
-
-  // --- UTILS ---
+  // --- COMMON ---
 
   async getNotifications(userId: string): Promise<Notification[]> {
-    const { data, error } = await this.client
-        .from('notifications')
+      const { data } = await this.client.from('notifications')
         .select('*')
-        .or(`user_id.eq.${userId},user_id.eq.ALL`)
+        .eq('user_id', userId)
         .order('timestamp', { ascending: false })
-        .limit(10);
-    
-    if (error) return [];
-    return data.map((n: any) => ({
-        id: n.id,
-        userId: n.user_id,
-        message: n.message,
-        type: n.type,
-        isRead: n.is_read,
-        timestamp: n.timestamp
-    }));
+        .limit(20);
+        
+      return (data || []).map((n: any) => ({
+          id: n.id,
+          userId: n.user_id,
+          message: n.message,
+          type: n.type,
+          isRead: n.is_read,
+          timestamp: n.timestamp
+      }));
+  }
+
+  async getCompanyDetails(id: string): Promise<Company | undefined> {
+      const { data } = await this.client.from('companies').select('*').eq('id', id).maybeSingle();
+      if (!data) return undefined;
+      return { id: data.id, clientId: data.client_id, name: data.name, logoUrl: data.logo_url };
   }
 
   async getAuditLogs(): Promise<AuditLog[]> {
-    const { data, error } = await this.client
-        .from('audit_logs')
-        .select('*')
-        .order('timestamp', { ascending: false })
-        .limit(50);
-    
-    if (error) return [];
-    return data.map((l: any) => ({
-        id: l.id,
-        timestamp: l.timestamp,
-        actorName: l.actor_name,
-        action: l.action,
-        target: l.target,
-        details: l.details,
-        severity: l.severity
-    }));
+      const { data } = await this.client.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(50);
+      return (data || []).map((l:any) => ({
+          id: l.id, timestamp: l.timestamp, actorId: l.actor_id,
+          action: l.action, target: l.target, details: l.details, severity: l.severity
+      }));
   }
 
-  async getConfig(): Promise<SystemConfig> {
-    return {
-       allowSiteClosures: true,
-       requireTwoFactor: false,
-       autoLockSalary: true,
-       emailAlerts: true
-    };
+  private async logAudit(actorId: string, action: string, target: string, details: string) {
+      // Best effort logging, don't crash app if log fails
+      try {
+        await this.client.from('audit_logs').insert({ actor_id: actorId, action, target, details });
+      } catch(e) { console.warn("Audit Log Failed", e); }
   }
 
-  async getAnalytics() {
-     const { data: records } = await this.client.from('salary_records').select('net_salary, employee_id');
-     const { data: employees } = await this.client.from('employees').select('id, site_id');
-     const { data: sites } = await this.client.from('sites').select('id, name');
-
-     if (!records || !employees || !sites) return { siteCosts: [], totalPayroll: 0 };
-
-     const siteCosts: Record<string, number> = {};
-     let total = 0;
-
-     records.forEach((rec: any) => {
-         const emp = employees.find((e: any) => e.id === rec.employee_id);
-         if (emp) {
-             const site = sites.find((s: any) => s.id === emp.site_id);
-             const siteName = site ? site.name : 'Unknown';
-             siteCosts[siteName] = (siteCosts[siteName] || 0) + Number(rec.net_salary);
-             total += Number(rec.net_salary);
-         }
-     });
-
-     return {
-         siteCosts: Object.keys(siteCosts).map(name => ({ name, value: siteCosts[name] })),
-         totalPayroll: total
-     };
-  }
-
-  // --- INTERNAL UTILS ---
-
-  private async logAudit(actorName: string, action: string, target: string, details: string, severity: 'INFO' | 'WARN' | 'CRITICAL' = 'INFO') {
-     await this.client.from('audit_logs').insert({
-         actor_name: actorName,
-         action,
-         target,
-         details,
-         severity
-     });
-  }
-
-  private mapUser(u: any): User {
-      return {
-          id: u.id,
-          uan: u.uan,
-          email: u.email,
-          password: u.password,
-          name: u.name,
-          role: u.role as UserRole,
-          companyId: u.company_id,
-          siteId: u.site_id
-      };
-  }
-
+  // MAPPERS
   private mapSite(s: any): Site {
-      return {
-          id: s.id,
-          companyId: s.company_id,
-          name: s.name,
-          siteCode: s.site_code,
-          address: s.address,
-          city: s.city,
-          state: s.state,
-          pincode: s.pincode,
-          email: s.email,
-          mobile: s.mobile,
-          managerName: s.manager_name,
-          managerMobile: s.manager_mobile,
-          status: s.status as SiteStatus,
-          logoUrl: s.logo_url
-      };
+    return {
+        id: s.id, companyId: s.company_id, name: s.name, siteCode: s.site_code,
+        address: s.address, city: s.city, state: s.state, pincode: s.pincode,
+        email: s.email, mobile: s.mobile, managerName: s.manager_name, managerMobile: s.manager_mobile,
+        status: s.status, logoUrl: s.logo_url
+    };
   }
 
   private mapEmployee(e: any): Employee {
       return {
-          id: e.id,
-          uan: e.uan,
-          name: e.name,
-          role: e.role as EmployeeRole,
-          companyId: e.company_id,
-          siteId: e.site_id,
-          status: e.status as EmployeeStatus,
-          addedBy: e.added_by,
-          joinedDate: e.joined_date
-      };
-  }
-
-  private mapSalary(s: any): SalaryRecord {
-      return {
-          id: s.id,
-          employeeId: s.employee_id,
-          month: s.month,
-          year: s.year,
-          basic: s.basic,
-          hra: s.hra,
-          allowances: s.allowances,
-          pfDeduction: s.pf_deduction,
-          taxDeduction: s.tax_deduction,
-          netSalary: s.net_salary,
-          isLocked: s.is_locked
+          uan: e.uan, name: e.name, role: e.role,
+          companyId: e.company_id, siteId: e.site_id,
+          status: e.status, addedBy: e.added_by, joinedDate: e.joined_date
       };
   }
 }

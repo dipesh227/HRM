@@ -143,7 +143,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="text-right hidden sm:block border-l border-slate-700 pl-4">
-            <div className="text-xs text-slate-400 max-w-[150px] truncate">{user.email || user.uan}</div>
+            <div className="text-xs text-slate-400 max-w-[150px] truncate">{user.email || user.id}</div>
           </div>
           <button 
             onClick={handleLogout}

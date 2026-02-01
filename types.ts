@@ -24,93 +24,75 @@ export enum EmployeeRole {
   OTHER = 'Other',
 }
 
-export interface Client {
-  id: string;
-  name: string;
-}
-
 export interface Company {
   id: string;
   clientId: string;
   name: string;
-  logoUrl: string; // Placeholder URL
+  logoUrl: string;
 }
 
 export interface Site {
   id: string;
   companyId: string;
   name: string;
-  siteCode?: string; // New
-  
-  // Location
+  siteCode?: string;
   address: string;
   city?: string;
   state?: string;
-  pincode?: string; // New
-  
-  // Site Contact
+  pincode?: string;
   email?: string;
-  mobile?: string; // Site Office Mobile
-  
-  // Manager Contact
-  managerName?: string; // New (replaces contactPerson)
-  managerMobile?: string; // New
-  
+  mobile?: string;
+  managerName?: string;
+  managerMobile?: string;
   status: SiteStatus;
   logoUrl?: string;
 }
 
+// Unified User Session Interface
 export interface User {
-  id: string;
-  uan: string; // Used as login ID for non-HR
-  email?: string; // Used as login for HR
-  password?: string; // In real app, hashed
+  id: string; // UUID (HR) or UAN (Staff)
+  identityType: 'UUID' | 'UAN';
+  email?: string;
   name: string;
   role: UserRole;
-  companyId?: string; // Linked company
-  siteId?: string; // Linked site (for Incharge/Employee)
+  companyId?: string;
+  siteId?: string;
 }
 
 export interface Employee {
-  id: string;
-  uan: string;
+  uan: string; // Primary Key (12-digit)
   name: string;
   role: EmployeeRole;
   companyId: string;
   siteId: string;
   status: EmployeeStatus;
-  addedBy: string; // Site Incharge ID
+  addedBy: string; // UAN or UUID
   joinedDate: string;
 }
 
+// Raw Record in DB
 export interface SalaryRecord {
   id: string;
-  employeeId: string;
-  month: number; // 1-12
+  employeeUan: string; // Foreign Key to Employee UAN
+  month: number;
   year: number;
   basic: number;
   hra: number;
   allowances: number;
   pfDeduction: number;
   taxDeduction: number;
-  netSalary: number;
-  isLocked?: boolean; // Level 2: Prevent edits after finalization
+  isLocked: boolean;
 }
 
-export interface Document {
-  id: string;
-  employeeId: string;
-  type: 'AADHAAR' | 'PAN' | 'BANK' | 'PHOTO';
-  fileName: string;
-  expiryDate?: string; // Level 2: Compliance tracking
+// Computed View from DB
+export interface SalaryView extends SalaryRecord {
+  netSalary: number; // Computed column
 }
-
-// --- LEVEL 2: ENTERPRISE TYPES ---
 
 export interface AuditLog {
   id: string;
   timestamp: string;
-  actorName: string;
+  actorId: string; // UUID or UAN
   action: string;
   target: string;
   details: string;
@@ -119,7 +101,7 @@ export interface AuditLog {
 
 export interface Notification {
   id: string;
-  userId: string; // 'ALL' or specific user ID
+  userId: string;
   message: string;
   type: 'INFO' | 'ALERT' | 'SUCCESS';
   isRead: boolean;

@@ -60,7 +60,6 @@ const SiteDashboard: React.FC<Props> = ({ user }) => {
     setIsSubmitting(true);
 
     const emp: Employee = {
-      id: `e_${Date.now()}`,
       name: newEmp.name,
       uan: newEmp.uan,
       role: newEmp.role,
@@ -185,7 +184,7 @@ const SiteDashboard: React.FC<Props> = ({ user }) => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                 {employees.map(emp => (
-                    <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={emp.uan} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
                         <div className="font-medium text-slate-800">{emp.name}</div>
                         <div className="text-xs text-slate-500">{emp.role}</div>
