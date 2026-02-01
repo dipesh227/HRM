@@ -21,7 +21,7 @@ if (SUPABASE_URL && SUPABASE_URL.endsWith('/')) {
     SUPABASE_URL = SUPABASE_URL.slice(0, -1);
 }
 
-// 2. Get Key (Support multiple naming conventions for maximum compatibility)
+// 2. Get Key (Updated to use VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY)
 const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY');
 
 let supabase: SupabaseClient | null = null;
@@ -47,7 +47,7 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY) {
         console.error("Critical: Failed to initialize Supabase client", e);
     }
 } else {
-    console.warn("Supabase credentials missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
+    console.warn("Supabase credentials missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY.");
 }
 
 export type ConnectionStatus = {
@@ -60,7 +60,7 @@ class DBService {
   
   // --- CONNECTION CHECK & DIAGNOSTICS ---
   async checkConnection(): Promise<ConnectionStatus> {
-      if (!supabase) return { connected: false, error: "Missing Credentials. Check .env file.", code: 'AUTH' };
+      if (!supabase) return { connected: false, error: "Missing Credentials. Check .env file for VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY.", code: 'AUTH' };
       
       try {
           // STEP 1: Basic Reachability (Auth Endpoint)

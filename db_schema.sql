@@ -1,5 +1,5 @@
 -- PostgreSQL Database Schema for Konark HR System
--- Production Ready Upgrade v3.0 (Native UUIDs)
+-- Production Ready Upgrade v3.1 (Fix Recursion & Clean RLS)
 
 -- 1. SETUP & ENUMS
 -- We use pgcrypto only if gen_random_uuid is not available, but usually it is in PG 13+
@@ -122,46 +122,42 @@ ALTER TABLE salary_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
+-- CLEANUP: Drop ALL existing policies to prevent recursion/conflicts
+DO $$ 
+DECLARE 
+    r RECORD; 
+BEGIN 
+    FOR r IN SELECT policyname, tablename FROM pg_policies WHERE tablename IN ('companies', 'sites', 'users', 'employees', 'salary_records', 'audit_logs', 'notifications') 
+    LOOP 
+        EXECUTE format('DROP POLICY IF EXISTS %I ON %I', r.policyname, r.tablename); 
+    END LOOP; 
+END $$;
+
 -- 1. COMPANIES & SITES
-DROP POLICY IF EXISTS "Public Read Companies" ON companies;
 CREATE POLICY "Public Read Companies" ON companies FOR SELECT USING (true);
-DROP POLICY IF EXISTS "HR Write Companies" ON companies;
 CREATE POLICY "HR Write Companies" ON companies FOR ALL USING (auth.role() = 'authenticated');
 
-DROP POLICY IF EXISTS "Public Read Sites" ON sites;
 CREATE POLICY "Public Read Sites" ON sites FOR SELECT USING (true);
-DROP POLICY IF EXISTS "HR Write Sites" ON sites;
 CREATE POLICY "HR Write Sites" ON sites FOR ALL USING (auth.role() = 'authenticated');
 
 -- 2. USERS
-DROP POLICY IF EXISTS "Users Read Own" ON users;
 CREATE POLICY "Users Read Own" ON users FOR SELECT USING (auth.uid() = id);
-DROP POLICY IF EXISTS "HR Insert Users" ON users;
 CREATE POLICY "HR Insert Users" ON users FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- 3. EMPLOYEES
-DROP POLICY IF EXISTS "Public Read Employees" ON employees;
 CREATE POLICY "Public Read Employees" ON employees FOR SELECT USING (true);
-DROP POLICY IF EXISTS "HR Write Employees" ON employees;
 CREATE POLICY "HR Write Employees" ON employees FOR ALL USING (auth.role() = 'authenticated');
-DROP POLICY IF EXISTS "Anon Insert Employees" ON employees;
 CREATE POLICY "Anon Insert Employees" ON employees FOR INSERT WITH CHECK (status = 'PENDING');
 
 -- 4. SALARY RECORDS
-DROP POLICY IF EXISTS "Public Read Salary" ON salary_records;
 CREATE POLICY "Public Read Salary" ON salary_records FOR SELECT USING (true);
-DROP POLICY IF EXISTS "HR Write Salary" ON salary_records;
 CREATE POLICY "HR Write Salary" ON salary_records FOR ALL USING (auth.role() = 'authenticated');
 
 -- 5. AUDIT & NOTIF
-DROP POLICY IF EXISTS "Anyone Insert Logs" ON audit_logs;
 CREATE POLICY "Anyone Insert Logs" ON audit_logs FOR INSERT WITH CHECK (true);
-DROP POLICY IF EXISTS "HR Read Logs" ON audit_logs;
 CREATE POLICY "HR Read Logs" ON audit_logs FOR SELECT USING (auth.role() = 'authenticated');
 
-DROP POLICY IF EXISTS "Anyone Insert Notif" ON notifications;
 CREATE POLICY "Anyone Insert Notif" ON notifications FOR INSERT WITH CHECK (true);
-DROP POLICY IF EXISTS "Read Own Notif" ON notifications;
 CREATE POLICY "Read Own Notif" ON notifications FOR SELECT USING (true);
 
 
