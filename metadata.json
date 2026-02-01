@@ -1,0 +1,5 @@
+{
+  "name": "Konark HR System",
+  "description": "A comprehensive role-based HR management system for multi-site organizations. Features include salary slip generation, employee approvals, and centralized site control.",
+  "requestFramePermissions": []
+}
