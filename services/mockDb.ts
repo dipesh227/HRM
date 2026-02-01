@@ -2,7 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { 
   UserRole, SiteStatus, EmployeeStatus, EmployeeRole, 
   User, Company, Site, Employee, SalaryRecord, SalaryView,
-  AuditLog, Notification
+  AuditLog, Notification, JobRole
 } from '../types';
 
 // ============================================================================
@@ -59,10 +59,17 @@ const MOCK_DB = {
     sites: [
         { id: 's1', companyId: 'c1', name: 'Konark Site - Pune HQ', siteCode: 'KE-PUN-01', address: 'Plot 45, Infotech Park', city: 'Pune', state: 'MH', status: SiteStatus.ACTIVE }
     ] as Site[],
+    job_roles: [
+        { id: 'r1', title: 'Supervisor', description: 'Site Manager', isSystemDefault: true },
+        { id: 'r2', title: 'Driver', description: 'Vehicle Operator', isSystemDefault: true },
+        { id: 'r3', title: 'Helper', description: 'General Assistant', isSystemDefault: true },
+        { id: 'r4', title: 'Safety Officer', description: 'Site Safety', isSystemDefault: true },
+        { id: 'r5', title: 'Other', description: 'General', isSystemDefault: true }
+    ] as JobRole[],
     employees: [
-        { uan: '100000000001', name: 'Rajesh Kumar', role: EmployeeRole.SUPERVISOR, companyId: 'c1', siteId: 's1', status: EmployeeStatus.APPROVED, addedBy: 'SYSTEM', joinedDate: '2024-01-01' },
-        { uan: '100000000002', name: 'Sunil Patil', role: EmployeeRole.DRIVER, companyId: 'c1', siteId: 's1', status: EmployeeStatus.APPROVED, addedBy: 'SYSTEM', joinedDate: '2024-01-15' },
-        { uan: '100000000003', name: 'Amit Singh', role: EmployeeRole.HELPER, companyId: 'c1', siteId: 's1', status: EmployeeStatus.PENDING, addedBy: 'SYSTEM', joinedDate: '2024-02-01' }
+        { uan: '100000000001', name: 'Rajesh Kumar', role: 'Supervisor', companyId: 'c1', siteId: 's1', status: EmployeeStatus.APPROVED, addedBy: 'SYSTEM', joinedDate: '2024-01-01' },
+        { uan: '100000000002', name: 'Sunil Patil', role: 'Driver', companyId: 'c1', siteId: 's1', status: EmployeeStatus.APPROVED, addedBy: 'SYSTEM', joinedDate: '2024-01-15' },
+        { uan: '100000000003', name: 'Amit Singh', role: 'Helper', companyId: 'c1', siteId: 's1', status: EmployeeStatus.PENDING, addedBy: 'SYSTEM', joinedDate: '2024-02-01' }
     ] as Employee[],
     salary_records: [] as SalaryRecord[],
     audit_logs: [] as AuditLog[],
@@ -231,6 +238,58 @@ class DBService {
     if (error) throw new Error(error.message);
     
     await this.logAudit(userId, 'PROFILE_UPDATE', 'Self', 'Updated profile details');
+  }
+
+  // --- JOB ROLES (NEW) ---
+
+  async getJobRoles(): Promise<JobRole[]> {
+      if (this.mockMode) return [...MOCK_DB.job_roles];
+      
+      const { data, error } = await this.client.from('job_roles').select('*').order('title');
+      if (error) {
+          // Fallback if table doesn't exist yet
+          return [
+              { id: '1', title: 'Supervisor', isSystemDefault: true },
+              { id: '2', title: 'Driver', isSystemDefault: true },
+              { id: '3', title: 'Helper', isSystemDefault: true },
+              { id: '4', title: 'Safety Officer', isSystemDefault: true },
+              { id: '5', title: 'Other', isSystemDefault: true },
+          ];
+      }
+
+      return (data || []).map((r: any) => ({
+          id: r.id,
+          title: r.title,
+          description: r.description,
+          isSystemDefault: r.is_system_default
+      }));
+  }
+
+  async addJobRole(title: string, description: string): Promise<void> {
+      if (this.mockMode) {
+          if (MOCK_DB.job_roles.some(r => r.title.toLowerCase() === title.toLowerCase())) {
+              throw new Error("Role already exists");
+          }
+          MOCK_DB.job_roles.push({
+              id: `role-${Date.now()}`,
+              title,
+              description,
+              isSystemDefault: false
+          });
+          return;
+      }
+      
+      const { error } = await this.client.from('job_roles').insert({ title, description });
+      if (error) throw error;
+  }
+
+  async deleteJobRole(id: string): Promise<void> {
+      if (this.mockMode) {
+          MOCK_DB.job_roles = MOCK_DB.job_roles.filter(r => r.id !== id);
+          return;
+      }
+      const { error } = await this.client.from('job_roles').delete().eq('id', id);
+      if (error) throw error;
   }
 
   // --- HR MODULE ---

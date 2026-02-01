@@ -17,12 +17,20 @@ export enum EmployeeStatus {
   INACTIVE = 'INACTIVE',
 }
 
+// Kept for backward compatibility references, but system now supports dynamic strings
 export enum EmployeeRole {
   SUPERVISOR = 'Supervisor',
   DRIVER = 'Driver',
   HELPER = 'Helper',
   SAFETY = 'Safety Officer',
   OTHER = 'Other',
+}
+
+export interface JobRole {
+    id: string;
+    title: string;
+    description?: string;
+    isSystemDefault?: boolean; // If true, cannot be deleted (e.g., Supervisor)
 }
 
 export interface Company {
@@ -68,7 +76,7 @@ export interface User {
 export interface Employee {
   uan: string; // Primary Key (12-digit)
   name: string;
-  role: EmployeeRole;
+  role: string; // Changed from EmployeeRole enum to string to support dynamic roles
   companyId: string;
   siteId: string;
   status: EmployeeStatus;

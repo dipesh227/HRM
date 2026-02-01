@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../UI/Button';
 import { Modal } from '../UI/Modal';
-import { Employee, EmployeeRole, EmployeeStatus, User, UserRole } from '../../types';
+import { Employee, EmployeeRole, EmployeeStatus, User, UserRole, JobRole } from '../../types';
 import { dbService } from '../../services/mockDb';
 import { UserPlus, BadgeCheck, User as UserIcon } from 'lucide-react';
 
@@ -13,26 +13,40 @@ interface NewEmployeeFormProps {
   showNotification: (type: 'success' | 'error', msg: string) => void;
   overrideSiteId?: string;
   overrideCompanyId?: string;
-  defaultRole?: EmployeeRole;
+  defaultRole?: string;
 }
 
 export const NewEmployeeForm: React.FC<NewEmployeeFormProps> = ({ 
     isOpen, onClose, user, onSuccess, showNotification, 
-    overrideSiteId, overrideCompanyId, defaultRole = EmployeeRole.HELPER 
+    overrideSiteId, overrideCompanyId, defaultRole = 'Helper'
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newEmp, setNewEmp] = useState({ name: '', uan: '', role: defaultRole });
+  const [jobRoles, setJobRoles] = useState<JobRole[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
 
   useEffect(() => {
       if(isOpen) {
           setNewEmp(prev => ({ ...prev, role: defaultRole }));
+          fetchRoles();
       }
   }, [isOpen, defaultRole]);
+
+  const fetchRoles = async () => {
+      setLoadingRoles(true);
+      try {
+          const roles = await dbService.getJobRoles();
+          setJobRoles(roles);
+      } catch (error) {
+          console.error("Failed to load roles", error);
+      } finally {
+          setLoadingRoles(false);
+      }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Logic: If HR is using this (overrideSiteId provided), use that. Else use the logged-in user's site.
     const targetCompanyId = overrideCompanyId || user.companyId;
     const targetSiteId = overrideSiteId || user.siteId;
 
@@ -49,7 +63,7 @@ export const NewEmployeeForm: React.FC<NewEmployeeFormProps> = ({
       role: newEmp.role,
       companyId: targetCompanyId,
       siteId: targetSiteId,
-      status: EmployeeStatus.PENDING, // Default is Pending
+      status: EmployeeStatus.PENDING,
       addedBy: user.id,
       joinedDate: new Date().toISOString().split('T')[0]
     };
@@ -57,9 +71,6 @@ export const NewEmployeeForm: React.FC<NewEmployeeFormProps> = ({
     try {
       await dbService.addEmployee(emp);
       
-      // Automatic Approval logic:
-      // 1. If HR creates an employee (or supervisor), auto-approve.
-      // 2. If Supervisor creates an employee, it stays pending.
       if (user.role === UserRole.HR) {
           await dbService.approveEmployee(emp.uan, true, user.id);
           showNotification('success', `${emp.role} created and approved.`);
@@ -77,21 +88,18 @@ export const NewEmployeeForm: React.FC<NewEmployeeFormProps> = ({
     }
   };
 
-  // Logic to filter roles based on permissions
-  const availableRoles = Object.values(EmployeeRole).filter(r => {
-      // HR can add anyone (including Supervisors)
+  // Filter roles based on user permissions
+  // Site Incharge cannot add Supervisors
+  const visibleRoles = jobRoles.filter(r => {
       if (user.role === UserRole.HR) return true;
-      
-      // Site Incharges cannot add other Supervisors, only staff
       if (user.role === UserRole.SITE_INCHARGE) {
-          return r !== EmployeeRole.SUPERVISOR;
+          return r.title !== 'Supervisor';
       }
-      
       return false;
   });
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={defaultRole === EmployeeRole.SUPERVISOR ? "Register Site Incharge" : "Add New Employee"}>
+    <Modal isOpen={isOpen} onClose={onClose} title={defaultRole === 'Supervisor' ? "Register Site Incharge" : "Add New Employee"}>
         <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-4">
                 <div>
@@ -132,11 +140,13 @@ export const NewEmployeeForm: React.FC<NewEmployeeFormProps> = ({
                     <div className="relative">
                         <select 
                             value={newEmp.role}
-                            onChange={e => setNewEmp({...newEmp, role: e.target.value as EmployeeRole})}
+                            onChange={e => setNewEmp({...newEmp, role: e.target.value})}
                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none appearance-none text-base"
+                            disabled={loadingRoles}
                         >
-                            {availableRoles.map(r => (
-                                <option key={r} value={r}>{r}</option>
+                            {loadingRoles && <option>Loading roles...</option>}
+                            {!loadingRoles && visibleRoles.map(r => (
+                                <option key={r.id} value={r.title}>{r.title}</option>
                             ))}
                         </select>
                         <div className="absolute right-4 top-4 w-2 h-2 border-r-2 border-b-2 border-slate-400 rotate-45 pointer-events-none"></div>

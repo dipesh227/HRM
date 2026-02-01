@@ -76,17 +76,23 @@ export const SalarySlip: React.FC<SalarySlipProps> = ({ user, salary, company, s
     <div className="space-y-6">
         {/* Scroll Container - Simulates paper on a desk for Mobile */}
         <div className="overflow-x-auto pb-4 -mx-3 px-3 md:mx-0 md:px-0">
-            <div className="min-w-[700px] md:w-full mx-auto bg-white shadow-2xl rounded-sm">
+            {/* Reduced width from 700px to 630px to maintain print proportions with 90% root font size */}
+            <div className="min-w-[630px] md:w-full mx-auto bg-white shadow-2xl rounded-sm">
                 <div id="salary-slip-content" className="p-8 md:p-12 text-slate-900 bg-white relative overflow-hidden">
                     
-                    {/* Improved Watermark - Darker Opacity (0.15) */}
+                    {/* Improved Watermark - Darker Opacity (0.15) & Name added */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-0">
                         {company.logoUrl ? (
-                             <img 
-                                src={company.logoUrl} 
-                                alt="Watermark" 
-                                className="w-[60%] opacity-[0.15] grayscale transform -rotate-12"
-                             />
+                             <div className="flex flex-col items-center justify-center opacity-[0.15] transform -rotate-12">
+                                 <img 
+                                    src={company.logoUrl} 
+                                    alt="Watermark" 
+                                    className="w-[400px] grayscale"
+                                 />
+                                 <p className="text-4xl font-black uppercase text-slate-900 mt-4 text-center max-w-lg leading-tight">
+                                    {company.name}
+                                 </p>
+                             </div>
                         ) : (
                              <div className="transform -rotate-45 text-7xl font-black uppercase text-slate-900 opacity-[0.05] whitespace-nowrap">
                                 {company.name}
@@ -215,14 +221,14 @@ export const SalarySlip: React.FC<SalarySlipProps> = ({ user, salary, company, s
                             </div>
                         </div>
 
-                        {/* Middle Stamp Section (Left/Center Aligned) */}
-                        <div className="mt-8 ml-12 h-24 relative">
+                        {/* Middle Stamp Section (Left/Center Aligned) - INCREASED SIZE */}
+                        <div className="mt-8 ml-12 h-36 relative">
                             {company.stampUrl && (
                                 <div className="absolute top-2 left-0 transform -rotate-6">
                                     <img 
                                         src={company.stampUrl} 
                                         alt="Official Stamp" 
-                                        className="h-24 w-24 object-contain opacity-90" 
+                                        className="h-36 w-36 object-contain opacity-90" 
                                     />
                                 </div>
                             )}
@@ -238,12 +244,12 @@ export const SalarySlip: React.FC<SalarySlipProps> = ({ user, salary, company, s
                             <div className="text-right flex flex-col items-end">
                                 {/* Signature Area with Stamp Behind */}
                                 <div className="relative h-20 w-40 mb-2">
-                                    {/* Stamp behind signature (if desired as '1 mohr ke puche') */}
+                                    {/* Stamp behind signature (if desired as '1 mohr ke puche') - INCREASED SIZE */}
                                     {company.stampUrl && (
                                         <img 
                                             src={company.stampUrl} 
                                             alt="Stamp" 
-                                            className="absolute right-2 bottom-0 h-20 w-20 opacity-40 object-contain rotate-[-12deg]" 
+                                            className="absolute right-0 bottom-[-10px] h-28 w-28 opacity-40 object-contain rotate-[-12deg]" 
                                         />
                                     )}
                                     {/* Signature */}

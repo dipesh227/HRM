@@ -1,5 +1,5 @@
 -- PostgreSQL Database Schema for Konark HR System
--- Specification Implementation v4.0
+-- Specification Implementation v5.0 (Added Dynamic Job Roles)
 
 -- 1. SETUP & ENUMS
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -8,7 +8,7 @@ DO $$ BEGIN
     CREATE TYPE user_role AS ENUM ('HR', 'SITE_INCHARGE', 'EMPLOYEE');
     CREATE TYPE site_status AS ENUM ('ACTIVE', 'CLOSED');
     CREATE TYPE employee_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'INACTIVE');
-    CREATE TYPE employee_role AS ENUM ('Supervisor', 'Driver', 'Helper', 'Safety Officer', 'Other');
+    -- employee_role enum removed in favor of dynamic job_roles table, but types logic handled in app
     CREATE TYPE severity_level AS ENUM ('INFO', 'WARN', 'CRITICAL');
     CREATE TYPE notification_type AS ENUM ('INFO', 'ALERT', 'SUCCESS');
 EXCEPTION
@@ -23,11 +23,20 @@ CREATE TABLE IF NOT EXISTS companies (
   client_id TEXT NOT NULL,
   name TEXT NOT NULL,
   logo_url TEXT,
-  signature_url TEXT, -- NEW: For Payslip Footer
-  stamp_url TEXT,     -- NEW: For Payslip Footer
+  signature_url TEXT, 
+  stamp_url TEXT,     
   email TEXT,
   mobile TEXT,
   address TEXT
+);
+
+-- JOB ROLES (New Module for Dynamic Roles)
+CREATE TABLE IF NOT EXISTS job_roles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL UNIQUE,
+  description TEXT,
+  is_system_default BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- SITES (Module 2)
@@ -62,7 +71,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS employees (
   uan TEXT PRIMARY KEY CHECK (uan ~ '^[0-9]{12}$'),
   name TEXT NOT NULL,
-  role employee_role NOT NULL,
+  role TEXT NOT NULL, -- Changed from ENUM to TEXT to support dynamic roles
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
   status employee_status DEFAULT 'PENDING',
@@ -143,11 +152,12 @@ ALTER TABLE sites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE salary_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_roles ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 DECLARE r RECORD; 
 BEGIN 
-    FOR r IN SELECT policyname, tablename FROM pg_policies WHERE tablename IN ('companies', 'sites', 'users', 'employees', 'salary_records') 
+    FOR r IN SELECT policyname, tablename FROM pg_policies WHERE tablename IN ('companies', 'sites', 'users', 'employees', 'salary_records', 'job_roles') 
     LOOP 
         EXECUTE format('DROP POLICY IF EXISTS %I ON %I', r.policyname, r.tablename); 
     END LOOP; 
@@ -158,6 +168,7 @@ CREATE POLICY "Public Read Sites" ON sites FOR ALL USING (true);
 CREATE POLICY "Public Read Users" ON users FOR ALL USING (true);
 CREATE POLICY "Public Read Emp" ON employees FOR ALL USING (true);
 CREATE POLICY "Public Read Sal" ON salary_records FOR ALL USING (true);
+CREATE POLICY "Public Read Roles" ON job_roles FOR ALL USING (true);
 
 -- SEED DATA
 INSERT INTO companies (id, client_id, name, logo_url, email, address) 
@@ -173,3 +184,12 @@ VALUES (
   'HR', 
   'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
 ) ON CONFLICT (email) DO UPDATE SET password = 'Hr@12345';
+
+-- SEED DEFAULT JOB ROLES
+INSERT INTO job_roles (title, description, is_system_default) VALUES
+('Supervisor', 'Site Manager and Team Lead', TRUE),
+('Driver', 'Vehicle Operator', TRUE),
+('Helper', 'General Assistant', TRUE),
+('Safety Officer', 'Ensures site safety protocols', TRUE),
+('Other', 'General Role', TRUE)
+ON CONFLICT (title) DO NOTHING;

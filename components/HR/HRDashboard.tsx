@@ -12,9 +12,10 @@ import { SiteManagement } from './SiteManagement';
 import { SalaryProcessing } from './SalaryProcessing';
 import { CompanyProfile } from './CompanyProfile';
 import { HRProfile } from './HRProfile';
-import { EmployeeDirectory } from './EmployeeDirectory'; // New Component
+import { EmployeeDirectory } from './EmployeeDirectory';
 import { MobileSidebar } from '../Layout/MobileSidebar';
 import { NewEmployeeForm } from '../Site/NewEmployeeForm';
+import { JobRoleManagement } from './JobRoleManagement'; // New Import
 
 interface HRDashboardProps {
     user?: User;
@@ -28,7 +29,7 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user, isSidebarOpen, onSideba
   const [stats, setStats] = useState<any>({});
   const [sites, setSites] = useState<Site[]>([]);
   const [pendingEmployees, setPendingEmployees] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'employees' | 'company' | 'sites' | 'approvals' | 'salary' | 'audit' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'employees' | 'company' | 'sites' | 'approvals' | 'salary' | 'audit' | 'profile' | 'roles'>('overview');
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
@@ -65,8 +66,9 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user, isSidebarOpen, onSideba
 
   const tabs = [
       { id: 'overview', label: 'Overview', icon: Activity },
-      { id: 'employees', label: 'Staff Directory', icon: Users }, // New Tab
+      { id: 'employees', label: 'Staff Directory', icon: Users },
       { id: 'company', label: 'Company', icon: Briefcase },
+      { id: 'roles', label: 'Job Roles', icon: Briefcase }, // New Tab
       { id: 'sites', label: 'Sites', icon: Building2 },
       { id: 'approvals', label: 'Approvals', icon: CheckCircle, badge: pendingEmployees.length },
       { id: 'salary', label: 'Payroll', icon: FileSpreadsheet },
@@ -151,6 +153,7 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user, isSidebarOpen, onSideba
             {activeTab === 'overview' && <HRStats stats={stats} />}
             {activeTab === 'employees' && <EmployeeDirectory sites={sites} showNotification={showNotification} />}
             {activeTab === 'company' && <CompanyProfile showNotification={showNotification} />}
+            {activeTab === 'roles' && <JobRoleManagement showNotification={showNotification} />} {/* New Component */}
             {activeTab === 'sites' && user && <SiteManagement sites={sites} onUpdate={loadData} showNotification={showNotification} user={user} />}
             {activeTab === 'approvals' && <PendingApprovals employees={pendingEmployees} onUpdate={loadData} showNotification={showNotification} />}
             {activeTab === 'salary' && <SalaryProcessing showNotification={showNotification} />}
@@ -188,10 +191,7 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user, isSidebarOpen, onSideba
                 user={user}
                 onSuccess={() => { loadData(); showNotification('success', "Staff Added"); }}
                 showNotification={showNotification}
-                defaultRole={EmployeeRole.HELPER}
-                // For HR, we need a way to pick site - usually done via Site Management tab, 
-                // but if global add is needed, we'd need a site selector in the form.
-                // Assuming HR uses the Site Mgmt tab primarily, but for quick add:
+                defaultRole={EmployeeRole.HELPER} // Pass enum val for type safety, but form will load list
                 overrideSiteId={sites.length > 0 ? sites[0].id : undefined} 
                 overrideCompanyId={user.companyId}
             />
