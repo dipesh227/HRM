@@ -52,10 +52,23 @@ class DBService {
       if (!supabase) return { connected: false, error: "Missing Environment Variables (URL/KEY)", code: 'AUTH' };
       
       try {
-          // 1. Connectivity Test (Head request to companies)
-          // Using a small timeout to prevent hanging on bad networks
+          // STEP 1: Check Auth Service (Lightweight, checks URL + Key reachability)
+          // This verifies if we can reach the server at all, before checking for tables.
+          const { error: authError } = await supabase.auth.getSession();
+          
+          if (authError) {
+             console.error("Auth Check Failed:", authError);
+             if (authError.message.includes('FetchError') || authError.message.includes('network') || authError.status === 0) {
+                 return { connected: false, error: "Network Error: Cannot reach Supabase URL. Check your internet or URL in .env", code: 'NETWORK' };
+             }
+             if (authError.status === 401 || authError.status === 403) {
+                 return { connected: false, error: "Auth Error: Invalid API Key.", code: 'AUTH' };
+             }
+          }
+
+          // STEP 2: Check Database Schema (Requires tables to exist)
           const abortController = new AbortController();
-          const timeoutId = setTimeout(() => abortController.abort(), 5000);
+          const timeoutId = setTimeout(() => abortController.abort(), 8000); // 8s timeout
 
           const { data, error, status } = await supabase
             .from('companies')
@@ -72,10 +85,10 @@ class DBService {
                   return { connected: false, error: "Database connected but tables are missing.", code: 'NO_SCHEMA' };
               }
               if (error.code === 'PGRST301' || status === 401 || status === 403) {
-                  return { connected: false, error: "Authentication failed. Check your Anon Key.", code: 'AUTH' };
+                  return { connected: false, error: "RLS/Auth Error accessing table.", code: 'AUTH' };
               }
               if (status === 0 || error.message.includes('FetchError') || error.message.includes('network')) {
-                  return { connected: false, error: "Server unreachable. Check internet or Supabase URL.", code: 'NETWORK' };
+                  return { connected: false, error: "Server unreachable (Database API).", code: 'NETWORK' };
               }
               return { connected: false, error: `${error.message} (Code: ${error.code})`, code: 'UNKNOWN' };
           }
@@ -84,7 +97,7 @@ class DBService {
       } catch (e: any) {
           console.error("DB Check Exception:", e);
           if (e.name === 'AbortError') {
-              return { connected: false, error: "Connection timed out. Server is slow or unreachable.", code: 'NETWORK' };
+              return { connected: false, error: "Connection timed out. Server is slow.", code: 'NETWORK' };
           }
           return { connected: false, error: e.message || "Unknown connection error", code: 'NETWORK' };
       }
@@ -112,15 +125,16 @@ class DBService {
         .maybeSingle();
 
     if (profileError) {
-        throw new Error("Failed to fetch user profile: " + profileError.message);
+        // If 406 or other weird error, handle gracefully
+        if (profileError.code !== 'PGRST116') {
+             console.error("Profile fetch error", profileError);
+        }
     }
     
     // Auto-create profile if missing (Self-healing for demo/MVP)
-    // In strict prod, you might want to block this, but for "connection not stable" scenarios, this helps.
     let userProfile = profile;
     if (!profile) {
         console.warn("User authenticated but no profile found. Attempting to seed...");
-        // This relies on RLS allowing the user to insert their own record
         const { data: newProfile, error: createError } = await this.client.from('users').insert({
             id: authData.user.id,
             email: authData.user.email!,
