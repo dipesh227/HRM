@@ -127,15 +127,17 @@ class DBService {
         throw new Error("Invalid Credentials. (Try: admin@konark.com / Hr@12345)");
     }
 
-    // --- UPDATED LOGIC USING RPC ---
+    // --- UPDATED LOGIC: RPC Login ---
     try {
         const { data, error } = await this.client.rpc("verify_hr_login", {
           p_email: email,
           p_password: password,
         });
 
+        console.log("LOGIN RESULT", data, error);
+
         if (error) {
-            console.error("RPC Error:", error);
+            console.error("Login RPC Error:", error);
             throw new Error(error.message);
         }
 
@@ -143,23 +145,22 @@ class DBService {
             throw new Error("Invalid credentials");
         }
 
+        // RPC returns an array of records
         const userData = data[0];
-        console.log("HR LOGIN SUCCESS", userData);
 
         const user: User = {
             id: userData.id,
             identityType: 'UUID',
-            email: email,
+            email: email, // RPC response doesn't strictly need to return email if we have it
             name: userData.name,
-            role: userData.role as UserRole, // Ensure database role matches enum
+            role: userData.role as UserRole,
             companyId: userData.company_id
         };
 
-        await this.logAudit(user.id, 'LOGIN_SUCCESS', 'Auth', 'HR Session Started (RPC)');
+        await this.logAudit(user.id, 'LOGIN_SUCCESS', 'Auth', 'HR Session Started');
         return user;
     } catch (err: any) {
-        // Fallback for demo if RPC isn't created yet
-        console.warn("RPC Login failed, falling back to Mock for demo flow if relevant", err);
+        console.warn("Login failed", err);
         throw err;
     }
   }

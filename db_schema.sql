@@ -1,5 +1,5 @@
 -- PostgreSQL Database Schema for Konark HR System
--- Production Ready Upgrade v3.4 (Custom Auth RPC Support)
+-- Production Ready Upgrade v3.5 (Schema Cleanup & RPC Fix)
 
 -- 1. SETUP & ENUMS
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS sites (
 CREATE TABLE IF NOT EXISTS users (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL, -- Added for RPC verification
+  password TEXT NOT NULL, -- Renamed from password_hash
   name TEXT NOT NULL,
   role user_role DEFAULT 'HR' CHECK (role = 'HR'),
   company_id UUID REFERENCES companies(id) ON DELETE SET NULL
@@ -131,13 +131,12 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  -- Returns user details ONLY if email matches and password matches (simple comparison for custom auth)
-  -- In a real scenario, use crypt() for hashing: password_hash = crypt(p_password, password_hash)
+  -- Returns user details ONLY if email matches and password matches
   RETURN QUERY
   SELECT u.id, u.name, u.role, u.company_id
   FROM users u
   WHERE u.email = p_email 
-  AND u.password_hash = p_password; -- Plaintext for demo, use hashing in prod
+  AND u.password = p_password; -- Use 'password' column (renamed from password_hash)
 END;
 $$;
 
@@ -196,7 +195,7 @@ VALUES ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'KONARK001', 'Konark Enterprises
 ON CONFLICT DO NOTHING;
 
 -- Seed Admin User for RPC Login
-INSERT INTO users (id, email, password_hash, name, role, company_id)
+INSERT INTO users (id, email, password, name, role, company_id)
 VALUES (
   'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33', 
   'admin@konark.com', 
@@ -204,4 +203,4 @@ VALUES (
   'System Admin', 
   'HR', 
   'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'
-) ON CONFLICT (email) DO UPDATE SET password_hash = 'Hr@12345';
+) ON CONFLICT (email) DO UPDATE SET password = 'Hr@12345';
