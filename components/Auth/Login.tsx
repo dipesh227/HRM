@@ -34,19 +34,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             onLogin(user);
         } else {
             // Staff Login: UAN check + Role determination
-            // Both SITE_INCHARGE and EMPLOYEE use the same loginStaff function
-            // The backend determines the actual role based on the employee record
             const user = await dbService.loginStaff(uan);
             
-            // Optional: Client-side hint if role mismatch (UX only, security is backend)
-            if (selectedRole === UserRole.SITE_INCHARGE && user.role !== UserRole.SITE_INCHARGE) {
-               // We allow it, but logic falls through to their actual permissions
-               // Could show a toast, but usually better to just log them in as who they are.
-            }
+            // Note: SITE_INCHARGE and EMPLOYEE roles are determined by backend logic.
+            // If user selected 'Site Incharge' but is actually an 'Employee', the system logs them in as 'Employee'.
             onLogin(user);
         }
     } catch (err: any) {
-        setError(err.message || "Authentication failed. Check credentials.");
+        setError(err.message || "Authentication failed.");
     } finally {
         setLoading(false);
     }

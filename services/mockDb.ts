@@ -9,45 +9,37 @@ import {
 // CONFIGURATION & INITIALIZATION
 // ============================================================================
 
-// Helper: robust env extraction with fallback for missing types
 const getEnv = (key: string) => {
   // @ts-ignore
   return (import.meta.env && import.meta.env[key]) ? import.meta.env[key] : '';
 };
 
-// 1. Get URL (Handle potential trailing slash)
 let SUPABASE_URL = getEnv('VITE_SUPABASE_URL');
 if (SUPABASE_URL && SUPABASE_URL.endsWith('/')) {
     SUPABASE_URL = SUPABASE_URL.slice(0, -1);
 }
 
-// 2. Get Key (Updated to use VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY)
 const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY');
 
 let supabase: SupabaseClient | null = null;
 
-// Initialize Client if credentials exist
 if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
         supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
             auth: {
-                persistSession: true, // Persist auth state in localStorage
+                persistSession: true,
                 autoRefreshToken: true,
                 detectSessionInUrl: true,
-                storage: window.localStorage // Explicitly use localStorage
+                storage: window.localStorage
             },
-            db: {
-                schema: 'public'
-            },
-            global: {
-                headers: { 'x-application-name': 'konark-hr-system' }
-            }
+            db: { schema: 'public' },
+            global: { headers: { 'x-application-name': 'konark-hr-system' } }
         });
     } catch (e) {
         console.error("Critical: Failed to initialize Supabase client", e);
     }
 } else {
-    console.warn("Supabase credentials missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY.");
+    console.warn("Supabase credentials missing.");
 }
 
 export type ConnectionStatus = {
@@ -58,66 +50,37 @@ export type ConnectionStatus = {
 
 class DBService {
   
-  // --- CONNECTION CHECK & DIAGNOSTICS ---
+  // --- CONNECTION CHECK ---
   async checkConnection(): Promise<ConnectionStatus> {
-      if (!supabase) return { connected: false, error: "Missing Credentials. Check .env file for VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY.", code: 'AUTH' };
+      if (!supabase) return { connected: false, error: "Missing Credentials.", code: 'AUTH' };
       
       try {
-          // STEP 1: Basic Reachability (Auth Endpoint)
-          // This verifies internet connection and valid URL/Key
           const { error: authError } = await supabase.auth.getSession();
-          
           if (authError) {
-             console.error("Auth Connection Check Failed:", authError);
-             
-             // Network/Fetch Errors
-             if (authError.message.includes('FetchError') || authError.message.includes('Failed to fetch') || authError.status === 0) {
-                 return { connected: false, error: "Network Error: Cannot reach Supabase. Check Internet/URL.", code: 'NETWORK' };
-             }
-             // Invalid Key Errors (401/403)
-             if (authError.status === 401 || authError.status === 403) {
-                 return { connected: false, error: "Authentication Failed. Check API Key.", code: 'AUTH' };
-             }
+             if (authError.message.includes('FetchError')) return { connected: false, error: "Network Error.", code: 'NETWORK' };
+             return { connected: false, error: "Authentication Failed.", code: 'AUTH' };
           }
 
-          // STEP 2: Database Reachability (Schema Check)
-          // Try to select 1 row from 'companies'. 
           const abortController = new AbortController();
-          const timeoutId = setTimeout(() => abortController.abort(), 10000); // 10s Timeout
+          const timeoutId = setTimeout(() => abortController.abort(), 10000);
 
-          const { error: dbError, status } = await supabase
+          const { error: dbError } = await supabase
             .from('companies')
-            .select('count', { count: 'exact', head: true }) // Lightweight HEAD request
+            .select('count', { count: 'exact', head: true })
             .abortSignal(abortController.signal);
             
           clearTimeout(timeoutId);
           
           if (dbError) {
-              console.error("DB Connection Check Failed:", dbError);
-              
-              // Table missing code
-              if (dbError.code === '42P01') {
-                  return { connected: false, error: "Database connected but tables are missing.", code: 'NO_SCHEMA' };
-              }
-              // RLS Error (Actually means we are connected!)
-              if (dbError.code === 'PGRST301' || status === 401 || status === 403) {
-                  // If we get an RLS error, it means we HIT the database and it responded. 
-                  // This counts as a successful "connection" for the purpose of the setup screen.
-                  return { connected: true };
-              }
-              // Timeout
-              if (dbError.message.includes('AbortError')) {
-                   return { connected: false, error: "Connection Timed Out.", code: 'NETWORK' };
-              }
-
+              if (dbError.code === '42P01') return { connected: false, error: "Tables missing.", code: 'NO_SCHEMA' };
+              if (dbError.code === 'PGRST301') return { connected: true }; // RLS is fine
+              if (dbError.message.includes('AbortError')) return { connected: false, error: "Timed Out.", code: 'NETWORK' };
               return { connected: false, error: `DB Error: ${dbError.message}`, code: 'UNKNOWN' };
           }
 
           return { connected: true };
       } catch (e: any) {
-          console.error("Connection Exception:", e);
-          if (e.name === 'AbortError') return { connected: false, error: "Connection Timed Out.", code: 'NETWORK' };
-          return { connected: false, error: e.message || "Unknown error", code: 'NETWORK' };
+          return { connected: false, error: e.message, code: 'NETWORK' };
       }
   }
 
@@ -130,13 +93,13 @@ class DBService {
   
   // 1. HR Login (Supabase Auth + public.users check)
   async loginHR(email: string, password: string): Promise<User> {
+    // A. Supabase Auth Login
     const { data: authData, error: authError } = await this.client.auth.signInWithPassword({ email, password });
     
     if (authError) throw new Error(authError.message);
     if (!authData.user) throw new Error("Authentication failed: No user returned.");
 
-    // STRICT: Fetch Profile from 'users' table. 
-    // If not found, deny access. (No auto-creation/self-healing)
+    // B. Check Public Users Table (Single Source of Truth for HR)
     const { data: profile, error: profileError } = await this.client
         .from('users')
         .select('*')
@@ -148,10 +111,10 @@ class DBService {
         throw new Error("System Error: Unable to verify HR profile.");
     }
     
+    // C. Strict Access Control
     if (!profile) {
-        // Force sign out if they are authenticated but not in the users table
         await this.client.auth.signOut();
-        throw new Error("Access Denied: Your account is not authorized as HR Admin.");
+        throw new Error("Access Denied: Account not authorized as HR.");
     }
 
     const user: User = {
@@ -167,12 +130,12 @@ class DBService {
     return user;
   }
 
-  // 2. Staff Login (UAN Based - Passwordless)
-  // Covers both SITE_INCHARGE and EMPLOYEE roles
+  // 2. Staff Login (UAN Based - NO Password)
   async loginStaff(uan: string): Promise<User> {
       const cleanUan = uan.trim();
       if (!/^\d{12}$/.test(cleanUan)) throw new Error("UAN must be exactly 12 digits.");
 
+      // A. Query Employees Table
       const { data: emp, error } = await this.client
           .from('employees')
           .select('*')
@@ -180,14 +143,14 @@ class DBService {
           .maybeSingle();
 
       if (error) throw new Error("Database error during staff login: " + error.message);
-      if (!emp) throw new Error("UAN not found. Please check your ID.");
+      if (!emp) throw new Error("UAN not found in records.");
       
-      // Strict Status Check
+      // B. Strict Status Check
       if (emp.status !== EmployeeStatus.APPROVED) {
           throw new Error(`Login Failed: Account status is ${emp.status}. Please contact HR.`);
       }
 
-      // Determine Role based on Job Title
+      // C. Determine Role based on Employee Role (Job Title)
       let sysRole = UserRole.EMPLOYEE;
       if (['Supervisor', 'Safety Officer'].includes(emp.role)) {
           sysRole = UserRole.SITE_INCHARGE;
@@ -237,17 +200,9 @@ class DBService {
   async uploadSiteLogo(file: File): Promise<string> {
       const fileExt = file.name.split('.').pop();
       const fileName = `site-logos/${Math.random().toString(36).substring(2)}.${fileExt}`;
-      
-      const { error } = await this.client.storage
-          .from('app-assets')
-          .upload(fileName, file);
-
+      const { error } = await this.client.storage.from('app-assets').upload(fileName, file);
       if (error) throw new Error("Logo Upload Failed: " + error.message);
-
-      const { data } = this.client.storage
-          .from('app-assets')
-          .getPublicUrl(fileName);
-          
+      const { data } = this.client.storage.from('app-assets').getPublicUrl(fileName);
       return data.publicUrl;
   }
 
