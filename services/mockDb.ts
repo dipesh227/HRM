@@ -128,14 +128,15 @@ class DBService {
 
   // --- AUTHENTICATION ---
   
-  // 1. HR Login (Supabase Auth)
+  // 1. HR Login (Supabase Auth + public.users check)
   async loginHR(email: string, password: string): Promise<User> {
     const { data: authData, error: authError } = await this.client.auth.signInWithPassword({ email, password });
     
     if (authError) throw new Error(authError.message);
     if (!authData.user) throw new Error("Authentication failed: No user returned.");
 
-    // Fetch Profile from 'users' table
+    // STRICT: Fetch Profile from 'users' table. 
+    // If not found, deny access. (No auto-creation/self-healing)
     const { data: profile, error: profileError } = await this.client
         .from('users')
         .select('*')
@@ -143,33 +144,23 @@ class DBService {
         .maybeSingle();
 
     if (profileError) {
-        if (profileError.code !== 'PGRST116') {
-             console.error("Profile fetch error", profileError);
-        }
+        console.error("Profile fetch error", profileError);
+        throw new Error("System Error: Unable to verify HR profile.");
     }
     
-    // Auto-create profile if missing (Self-healing)
-    let userProfile = profile;
     if (!profile) {
-        console.warn("User authenticated but no profile found. Attempting to seed...");
-        const { data: newProfile, error: createError } = await this.client.from('users').insert({
-            id: authData.user.id,
-            email: authData.user.email!,
-            name: 'HR Admin', // Default
-            role: 'HR'
-        }).select().single();
-        
-        if (createError) throw new Error("Profile creation failed: " + createError.message);
-        userProfile = newProfile;
+        // Force sign out if they are authenticated but not in the users table
+        await this.client.auth.signOut();
+        throw new Error("Access Denied: Your account is not authorized as HR Admin.");
     }
 
     const user: User = {
-        id: userProfile.id,
+        id: profile.id,
         identityType: 'UUID',
-        email: userProfile.email,
-        name: userProfile.name,
+        email: profile.email,
+        name: profile.name,
         role: UserRole.HR,
-        companyId: userProfile.company_id
+        companyId: profile.company_id
     };
 
     await this.logAudit(user.id, 'LOGIN_SUCCESS', 'Auth', 'HR Session Started');
@@ -177,6 +168,7 @@ class DBService {
   }
 
   // 2. Staff Login (UAN Based - Passwordless)
+  // Covers both SITE_INCHARGE and EMPLOYEE roles
   async loginStaff(uan: string): Promise<User> {
       const cleanUan = uan.trim();
       if (!/^\d{12}$/.test(cleanUan)) throw new Error("UAN must be exactly 12 digits.");
@@ -188,8 +180,14 @@ class DBService {
           .maybeSingle();
 
       if (error) throw new Error("Database error during staff login: " + error.message);
-      if (!emp) throw new Error("Employee not found. Please check UAN.");
+      if (!emp) throw new Error("UAN not found. Please check your ID.");
       
+      // Strict Status Check
+      if (emp.status !== EmployeeStatus.APPROVED) {
+          throw new Error(`Login Failed: Account status is ${emp.status}. Please contact HR.`);
+      }
+
+      // Determine Role based on Job Title
       let sysRole = UserRole.EMPLOYEE;
       if (['Supervisor', 'Safety Officer'].includes(emp.role)) {
           sysRole = UserRole.SITE_INCHARGE;
