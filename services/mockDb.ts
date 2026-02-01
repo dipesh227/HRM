@@ -211,6 +211,28 @@ class DBService {
       return user;
   }
 
+  async updateHRProfile(userId: string, updates: { name: string; email: string; password?: string }): Promise<void> {
+    if (this.mockMode) return;
+    
+    const updatePayload: any = {
+        name: updates.name,
+        email: updates.email
+    };
+    // Only update password if provided and not empty
+    if (updates.password && updates.password.trim() !== '') {
+        updatePayload.password = updates.password;
+    }
+
+    const { error } = await this.client
+        .from('users')
+        .update(updatePayload)
+        .eq('id', userId);
+
+    if (error) throw new Error(error.message);
+    
+    await this.logAudit(userId, 'PROFILE_UPDATE', 'Self', 'Updated profile details');
+  }
+
   // --- HR MODULE ---
 
   async getHRStats() {
@@ -281,12 +303,27 @@ class DBService {
 
   async uploadSiteLogo(file: File): Promise<string> {
       if (this.mockMode) return URL.createObjectURL(file);
+      
       const fileExt = file.name.split('.').pop();
-      const fileName = `site-logos/${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const { error } = await this.client.storage.from('app-assets').upload(fileName, file);
-      if (error) throw new Error("Logo Upload Failed: " + error.message);
-      const { data } = this.client.storage.from('app-assets').getPublicUrl(fileName);
-      return data.publicUrl;
+      const fileName = `logos/${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+      const { data, error } = await this.client.storage
+          .from('app-assets')
+          .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false
+          });
+
+      if (error) {
+          console.error("Upload Error:", error);
+          throw new Error("Logo Upload Failed: " + error.message);
+      }
+
+      const { data: urlData } = this.client.storage
+          .from('app-assets')
+          .getPublicUrl(fileName);
+          
+      return urlData.publicUrl;
   }
 
   async createSite(site: Partial<Site>): Promise<void> {
@@ -310,6 +347,53 @@ class DBService {
         status: SiteStatus.ACTIVE
     });
     if (error) throw error;
+  }
+
+  async updateSite(siteId: string, updates: Partial<Site>): Promise<void> {
+      if (this.mockMode) {
+          const idx = MOCK_DB.sites.findIndex(s => s.id === siteId);
+          if (idx >= 0) MOCK_DB.sites[idx] = { ...MOCK_DB.sites[idx], ...updates };
+          return;
+      }
+      
+      // Map frontend camelCase to DB snake_case for updates
+      const dbUpdates: any = {};
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.siteCode !== undefined) dbUpdates.site_code = updates.siteCode;
+      if (updates.address !== undefined) dbUpdates.address = updates.address;
+      if (updates.city !== undefined) dbUpdates.city = updates.city;
+      if (updates.state !== undefined) dbUpdates.state = updates.state;
+      if (updates.pincode !== undefined) dbUpdates.pincode = updates.pincode;
+      if (updates.email !== undefined) dbUpdates.email = updates.email;
+      if (updates.mobile !== undefined) dbUpdates.mobile = updates.mobile;
+      if (updates.managerName !== undefined) dbUpdates.manager_name = updates.managerName;
+      if (updates.managerMobile !== undefined) dbUpdates.manager_mobile = updates.managerMobile;
+      if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.logoUrl !== undefined) dbUpdates.logo_url = updates.logoUrl;
+
+      const { error } = await this.client
+        .from('sites')
+        .update(dbUpdates)
+        .eq('id', siteId);
+
+      if (error) throw error;
+      await this.logAudit('HR_ADMIN', 'SITE_UPDATE', siteId, 'Updated Site Details');
+  }
+
+  async deleteSite(siteId: string): Promise<void> {
+      // Soft delete by setting status to CLOSED
+      if (this.mockMode) {
+          const idx = MOCK_DB.sites.findIndex(s => s.id === siteId);
+          if (idx >= 0) MOCK_DB.sites[idx].status = SiteStatus.CLOSED;
+          return;
+      }
+      const { error } = await this.client
+        .from('sites')
+        .update({ status: 'CLOSED' })
+        .eq('id', siteId);
+
+      if (error) throw error;
+      await this.logAudit('HR_ADMIN', 'SITE_CLOSE', siteId, 'Site Closed/Deleted');
   }
 
   // --- EMPLOYEES ---
@@ -336,15 +420,9 @@ class DBService {
   // --- SALARY (Module 5) ---
 
   async uploadSalaryData(records: SalaryRecord[], actorId: string): Promise<{processed: number, skipped: number}> {
-    // Basic Net Salary Calculation Logic handled in DB (Generated Column), 
-    // but we can compute here for Mock Mode or validation
-    
-    // Ensure uniqueness constraint: uan + month + year + site_id
-    
     if (this.mockMode) {
         let processed = 0;
         records.forEach(r => {
-             // Calculate Net Salary for Mock
              const net = r.basic + r.hra + r.allowances - r.pfDeduction - r.taxDeduction;
              const rWithNet = { ...r, netSalary: net };
 
@@ -373,7 +451,6 @@ class DBService {
         pf_deduction: rec.pfDeduction,
         tax_deduction: rec.taxDeduction,
         is_locked: true
-        // net_salary is generated by DB
     }));
 
     const { error } = await this.client.from('salary_records')

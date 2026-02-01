@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../../services/mockDb';
-import { Site, AuditLog } from '../../types';
+import { Site, AuditLog, User } from '../../types';
 import { 
   Building2, CheckCircle, FileSpreadsheet, Activity, ShieldAlert,
-  AlertTriangle, CheckCircle as CheckIcon, X, Briefcase
+  AlertTriangle, CheckCircle as CheckIcon, X, Briefcase, UserCircle
 } from 'lucide-react';
 
 // Sub-components
@@ -12,13 +12,19 @@ import { PendingApprovals } from './PendingApprovals';
 import { SiteManagement } from './SiteManagement';
 import { SalaryProcessing } from './SalaryProcessing';
 import { CompanyProfile } from './CompanyProfile';
+import { HRProfile } from './HRProfile';
 
-const HRDashboard: React.FC = () => {
+// Need to pass user context for profile editing
+interface HRDashboardProps {
+    user?: User; // Optional initially as we refactor, but essentially required
+}
+
+const HRDashboard: React.FC<HRDashboardProps> = ({ user }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<any>({});
   const [sites, setSites] = useState<Site[]>([]);
   const [pendingEmployees, setPendingEmployees] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'company' | 'sites' | 'approvals' | 'salary' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'company' | 'sites' | 'approvals' | 'salary' | 'audit' | 'profile'>('overview');
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
@@ -57,6 +63,7 @@ const HRDashboard: React.FC = () => {
       { id: 'approvals', label: 'Approvals', icon: CheckCircle, badge: pendingEmployees.length },
       { id: 'salary', label: 'Payroll', icon: FileSpreadsheet },
       { id: 'audit', label: 'Audit', icon: ShieldAlert },
+      { id: 'profile', label: 'Profile', icon: UserCircle },
   ];
 
   return (
@@ -112,10 +119,12 @@ const HRDashboard: React.FC = () => {
         <div className="animate-fade-in space-y-8">
             {activeTab === 'overview' && <HRStats stats={stats} />}
             {activeTab === 'company' && <CompanyProfile showNotification={showNotification} />}
-            {activeTab === 'sites' && <SiteManagement sites={sites} onUpdate={loadData} showNotification={showNotification} />}
+            {activeTab === 'sites' && user && <SiteManagement sites={sites} onUpdate={loadData} showNotification={showNotification} user={user} />}
             {activeTab === 'approvals' && <PendingApprovals employees={pendingEmployees} onUpdate={loadData} showNotification={showNotification} />}
             {activeTab === 'salary' && <SalaryProcessing showNotification={showNotification} />}
             
+            {activeTab === 'profile' && user && <HRProfile showNotification={showNotification} user={user} />}
+
             {activeTab === 'audit' && (
                 <div className="space-y-6">
                     <h3 className="font-bold text-xl px-2 text-slate-900 dark:text-white">Recent System Activity</h3>

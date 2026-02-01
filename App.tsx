@@ -128,7 +128,7 @@ const App: React.FC = () => {
       />
 
       <div className="flex-1 overflow-y-auto relative bg-slate-100 dark:bg-slate-950">
-        {user.role === UserRole.HR && <HRDashboard />}
+        {user.role === UserRole.HR && <HRDashboard user={user} />}
         {user.role === UserRole.SITE_INCHARGE && <SiteDashboard user={user} />}
         {user.role === UserRole.EMPLOYEE && <EmployeeView user={user} />}
       </div>

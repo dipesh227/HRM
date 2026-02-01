@@ -4,7 +4,7 @@ import { Button } from '../UI/Button';
 import { InputField } from '../UI/InputField';
 import { dbService } from '../../services/mockDb';
 import { Company } from '../../types';
-import { Building, Mail, Phone, MapPin, ImageIcon, Save } from 'lucide-react';
+import { Building, Mail, Phone, MapPin, ImageIcon, Save, Upload } from 'lucide-react';
 
 interface Props {
     showNotification: (type: 'success' | 'error', msg: string) => void;
@@ -43,10 +43,12 @@ export const CompanyProfile: React.FC<Props> = ({ showNotification }) => {
         try {
             let logoUrl = company.logoUrl;
             if (logoFile) {
-                logoUrl = await dbService.uploadSiteLogo(logoFile); // Reusing site logo upload for company
+                // Upload logic handled by updated service
+                logoUrl = await dbService.uploadSiteLogo(logoFile); 
             }
             await dbService.updateCompanyProfile(company.id, { ...company, logoUrl });
             showNotification('success', "Company profile updated successfully.");
+            setLogoFile(null); // Clear pending file
         } catch (e: any) {
             showNotification('error', e.message);
         } finally {
@@ -59,30 +61,41 @@ export const CompanyProfile: React.FC<Props> = ({ showNotification }) => {
 
     return (
         <Card title="Company Profile" className="max-w-3xl mx-auto animate-fade-in">
-            <form onSubmit={handleSave} className="space-y-6">
+            <form onSubmit={handleSave} className="space-y-8">
                 
-                {/* Header Section */}
-                <div className="flex items-start gap-6">
-                    <div className="w-24 h-24 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0 relative group">
-                        {logoFile ? (
-                            <img src={URL.createObjectURL(logoFile)} className="w-full h-full object-cover" alt="Preview" />
-                        ) : company.logoUrl ? (
-                            <img src={company.logoUrl} className="w-full h-full object-cover" alt="Logo" />
-                        ) : (
-                            <Building className="w-10 h-10 text-slate-400" />
-                        )}
-                        <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                            <ImageIcon className="w-6 h-6 text-white" />
-                            <input type="file" accept="image/*" className="hidden" onChange={e => setLogoFile(e.target.files?.[0] || null)} />
-                        </label>
+                {/* Logo & Header Section */}
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-8 bg-slate-50 dark:bg-slate-800/30 p-6 rounded-3xl border border-slate-100 dark:border-white/5">
+                    <div className="relative group">
+                        <div className="w-32 h-32 rounded-3xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shadow-lg relative">
+                            {logoFile ? (
+                                <img src={URL.createObjectURL(logoFile)} className="w-full h-full object-contain p-2" alt="Preview" />
+                            ) : company.logoUrl ? (
+                                <img src={company.logoUrl} className="w-full h-full object-contain p-2" alt="Logo" />
+                            ) : (
+                                <Building className="w-12 h-12 text-slate-300" />
+                            )}
+                            
+                            {/* Overlay for uploading */}
+                            <label className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer backdrop-blur-sm">
+                                <Upload className="w-8 h-8 text-white mb-1" />
+                                <span className="text-xs font-bold text-white uppercase tracking-wider">Change</span>
+                                <input type="file" accept="image/*" className="hidden" onChange={e => setLogoFile(e.target.files?.[0] || null)} />
+                            </label>
+                        </div>
                     </div>
-                    <div className="flex-1">
-                         <h3 className="text-xl font-bold text-slate-900 dark:text-white">{company.name}</h3>
-                         <p className="text-sm text-slate-500 dark:text-slate-400 font-mono mt-1">Client ID: {company.clientId}</p>
+                    
+                    <div className="text-center sm:text-left flex-1">
+                         <h3 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{company.name}</h3>
+                         <p className="text-sm text-slate-500 dark:text-slate-400 font-mono mt-2 bg-white dark:bg-white/5 inline-block px-3 py-1 rounded-lg border border-slate-200 dark:border-white/10">
+                            Client ID: {company.clientId}
+                         </p>
+                         <p className="text-sm text-slate-400 mt-4 max-w-sm">
+                            Click the logo box to upload a new company brand image. This logo will appear on all payslips.
+                         </p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <InputField 
                         label="Company Name" 
                         value={company.name} 
@@ -111,8 +124,8 @@ export const CompanyProfile: React.FC<Props> = ({ showNotification }) => {
                     />
                 </div>
 
-                <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <Button type="submit" variant="primary" icon={Save} isLoading={saving}>Save Changes</Button>
+                <div className="flex justify-end pt-6 border-t border-slate-100 dark:border-slate-800">
+                    <Button type="submit" variant="primary" icon={Save} isLoading={saving} size="lg">Save Changes</Button>
                 </div>
             </form>
         </Card>
