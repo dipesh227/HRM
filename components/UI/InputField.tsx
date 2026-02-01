@@ -21,7 +21,7 @@ export const InputField: React.FC<InputFieldProps> = ({
             )}
             <input 
                 {...props}
-                className={`w-full ${Icon ? 'pl-12' : 'pl-5'} pr-5 py-4 bg-slate-50 dark:bg-slate-800/50 border ${error ? 'border-red-500' : 'border-slate-200 dark:border-slate-700/50'} text-slate-900 dark:text-white rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-ios-blue outline-none transition-all placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed text-[15px] font-medium shadow-sm`}
+                className={`w-full ${Icon ? 'pl-12' : 'pl-5'} pr-5 py-3.5 md:py-4 bg-slate-50 dark:bg-slate-800/50 border ${error ? 'border-red-500' : 'border-slate-200 dark:border-slate-700/50'} text-slate-900 dark:text-white rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-ios-blue outline-none transition-all placeholder:text-slate-400 disabled:opacity-50 disabled:cursor-not-allowed text-base font-medium shadow-sm`}
             />
         </div>
         {error && <p className="text-red-500 text-xs font-medium mt-1.5 ml-1 flex items-center gap-1 animate-slide-up">

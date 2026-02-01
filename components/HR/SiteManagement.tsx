@@ -7,7 +7,7 @@ import { Modal } from '../UI/Modal';
 import { InputField } from '../UI/InputField';
 import { dbService } from '../../services/mockDb';
 import { NewEmployeeForm } from '../Site/NewEmployeeForm';
-import { Building2, Plus, ImageIcon, MapPin, Pencil, Trash2, Mail, Phone, User as UserIcon, UserPlus, ChevronDown } from 'lucide-react';
+import { Building2, Plus, MapPin, Pencil, Trash2, User as UserIcon, ChevronDown } from 'lucide-react';
 
 interface SiteManagementProps {
   sites: Site[];
@@ -36,7 +36,6 @@ export const SiteManagement: React.FC<SiteManagementProps> = ({ sites, onUpdate,
   const [formData, setFormData] = useState<Partial<Site>>(initialSiteState);
   const [siteLogo, setSiteLogo] = useState<File | null>(null);
 
-  // Fetch staff when editing a site
   useEffect(() => {
     const fetchStaff = async () => {
         if (editingId) {
@@ -71,7 +70,7 @@ export const SiteManagement: React.FC<SiteManagementProps> = ({ sites, onUpdate,
   };
 
   const handleDelete = async (siteId: string) => {
-      if(!window.confirm("Are you sure you want to close this site? It will be hidden from operations.")) return;
+      if(!window.confirm("Are you sure you want to close this site?")) return;
       try {
           await dbService.deleteSite(siteId);
           showNotification('success', "Site closed successfully.");
@@ -117,13 +116,12 @@ export const SiteManagement: React.FC<SiteManagementProps> = ({ sites, onUpdate,
           setFormData(prev => ({
               ...prev,
               managerName: selectedEmp.name,
-              managerMobile: "Linked UAN: " + selectedEmp.uan // Or fetch mobile if available
+              managerMobile: "Linked UAN: " + selectedEmp.uan
           }));
       }
   };
 
   const handleInchargeCreated = () => {
-      // Refresh the staff list if we are editing
       if (editingId) {
           const fetchStaff = async () => {
             const staff = await dbService.getSiteEmployees(editingId);
@@ -135,164 +133,103 @@ export const SiteManagement: React.FC<SiteManagementProps> = ({ sites, onUpdate,
   };
 
   return (
-    <div className="animate-fade-in">
-         <div className="flex justify-between items-center mb-6">
-             <h3 className="font-bold text-slate-800 dark:text-white text-lg">Registered Sites</h3>
-             <Button onClick={handleAdd} icon={Plus} size="lg" className="shadow-lg shadow-blue-500/20">Add New Site</Button>
+    <div className="animate-fade-in space-y-4">
+         <div className="flex justify-between items-center mb-2">
+             <h3 className="font-bold text-slate-800 dark:text-white text-lg">Site Operations</h3>
+             <Button onClick={handleAdd} icon={Plus} size="sm" className="shadow-lg shadow-blue-500/20">Add Site</Button>
          </div>
          
-         <div className="grid gap-4">
-             {sites.length === 0 ? <p className="text-slate-500 dark:text-slate-400 p-4">No sites found.</p> : sites.map(s => (
-                 <Card key={s.id} className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:shadow-md transition-shadow relative overflow-hidden">
-                     {/* Status indicator line */}
-                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${s.status === SiteStatus.ACTIVE ? 'bg-green-500' : 'bg-red-500'}`} />
+         <div className="grid gap-3">
+             {sites.length === 0 ? <p className="text-slate-500 text-center py-8">No sites found.</p> : sites.map(s => (
+                 <Card key={s.id} className="p-0 overflow-hidden relative" noPadding>
+                     <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${s.status === SiteStatus.ACTIVE ? 'bg-green-500' : 'bg-red-500'}`} />
                      
-                     <div className="flex items-start gap-4 flex-1">
-                         {s.logoUrl ? (
-                             <img src={s.logoUrl} alt={s.name} className="w-16 h-16 rounded-xl object-contain border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800" />
-                         ) : (
-                             <div className="w-16 h-16 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shrink-0">
-                                 <Building2 className="w-8 h-8" />
-                             </div>
-                         )}
-                         <div>
-                             <h4 className="font-bold text-lg text-slate-800 dark:text-white leading-tight">{s.name}</h4>
-                             <p className="text-xs font-mono text-slate-400 mt-0.5">{s.siteCode || 'NO CODE'}</p>
-                             
-                             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-slate-500 dark:text-slate-400">
-                                <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {s.city}, {s.state}</span>
-                                {s.managerName && <span className="flex items-center gap-1"><UserIcon className="w-3 h-3" /> {s.managerName}</span>}
-                             </div>
-                         </div>
-                     </div>
+                     <div className="p-4 flex flex-col sm:flex-row gap-4">
+                        <div className="flex items-start gap-3 flex-1">
+                            {s.logoUrl ? (
+                                <img src={s.logoUrl} alt={s.name} className="w-14 h-14 rounded-xl object-cover border border-slate-100 dark:border-slate-700 bg-slate-50" />
+                            ) : (
+                                <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 shrink-0">
+                                    <Building2 className="w-7 h-7" />
+                                </div>
+                            )}
+                            <div className="min-w-0">
+                                <h4 className="font-bold text-base text-slate-900 dark:text-white leading-tight truncate pr-2">{s.name}</h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <Badge variant="neutral" className="text-[10px]">{s.siteCode || 'N/A'}</Badge>
+                                    <Badge variant={s.status === SiteStatus.ACTIVE ? 'success' : 'danger'} className="text-[10px]">{s.status}</Badge>
+                                </div>
+                                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {s.city}</span>
+                                    {s.managerName && <span className="flex items-center gap-1"><UserIcon className="w-3 h-3" /> {s.managerName}</span>}
+                                </div>
+                            </div>
+                        </div>
 
-                     <div className="flex items-center gap-2 w-full md:w-auto mt-2 md:mt-0">
-                         <Badge variant={s.status === SiteStatus.ACTIVE ? 'success' : 'danger'}>{s.status}</Badge>
-                         <div className="flex gap-2 ml-auto">
-                            <Button variant="secondary" size="sm" onClick={() => handleEdit(s)} icon={Pencil} className="h-9 w-9 p-0 md:w-auto md:px-3">
-                                <span className="hidden md:inline">Edit</span>
-                            </Button>
-                            <Button variant="danger" size="sm" onClick={() => handleDelete(s.id)} icon={Trash2} className="h-9 w-9 p-0 md:w-auto md:px-3">
-                                <span className="hidden md:inline">Close</span>
-                            </Button>
-                         </div>
+                        <div className="flex sm:flex-col justify-end gap-2 pt-2 sm:pt-0 sm:border-l border-slate-100 dark:border-slate-800 sm:pl-4">
+                             <Button variant="secondary" size="sm" onClick={() => handleEdit(s)} icon={Pencil} className="flex-1 sm:w-full justify-center">Edit</Button>
+                             {s.status === SiteStatus.ACTIVE && (
+                                <Button variant="ghost" size="sm" onClick={() => handleDelete(s.id)} icon={Trash2} className="flex-1 sm:w-full justify-center text-red-500 hover:bg-red-50">Close</Button>
+                             )}
+                        </div>
                      </div>
                  </Card>
              ))}
          </div>
 
-         {/* Edit/Add Modal */}
-         <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingId ? "Edit Site Details" : "Add New Site"} maxWidth="max-w-2xl">
-            <form onSubmit={handleSave} className="space-y-6">
-                
-                {/* Basic Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <InputField 
-                        label="Site Name" 
-                        required 
-                        value={formData.name} 
-                        onChange={e => setFormData({...formData, name: e.target.value})} 
-                        icon={Building2}
-                        className="md:col-span-2"
-                    />
-                    <InputField 
-                        label="Site Code" 
-                        value={formData.siteCode || ''} 
-                        onChange={e => setFormData({...formData, siteCode: e.target.value})} 
-                        placeholder="e.g. PUN-001"
-                    />
-                    <div className="border border-slate-200 dark:border-slate-700 rounded-2xl p-3 bg-slate-50 dark:bg-slate-800 flex items-center gap-3">
-                        <div className="h-10 w-10 bg-white dark:bg-slate-700 rounded-lg flex items-center justify-center text-slate-400 border border-slate-200 dark:border-slate-600">
-                            {siteLogo ? <ImageIcon className="w-5 h-5 text-blue-500" /> : <ImageIcon className="w-5 h-5" />}
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-0.5">Site Logo</label>
-                             <input type="file" accept="image/*" onChange={e => setSiteLogo(e.target.files?.[0] || null)} className="text-xs w-full text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:bg-blue-50 file:text-blue-700 cursor-pointer" />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Location */}
-                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2"><MapPin className="w-4 h-4"/> Location Details</h4>
-                    <InputField 
-                        label="Full Address" 
-                        required 
-                        value={formData.address} 
-                        onChange={e => setFormData({...formData, address: e.target.value})} 
-                    />
-                    <div className="grid grid-cols-3 gap-3">
+         <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingId ? "Edit Site" : "Add Site"} maxWidth="max-w-xl">
+            <form onSubmit={handleSave} className="space-y-5">
+                <div className="space-y-4">
+                    <InputField label="Site Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} icon={Building2} />
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                        <InputField label="Site Code" value={formData.siteCode || ''} onChange={e => setFormData({...formData, siteCode: e.target.value})} placeholder="CODE" />
                         <InputField label="City" required value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} />
-                        <InputField label="State" value={formData.state || ''} onChange={e => setFormData({...formData, state: e.target.value})} />
-                        <InputField label="Pincode" value={formData.pincode || ''} onChange={e => setFormData({...formData, pincode: e.target.value})} />
                     </div>
-                </div>
 
-                {/* Manager / Incharge Section */}
-                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                     <div className="flex justify-between items-center">
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2"><UserIcon className="w-4 h-4"/> Site In-Charge</h4>
-                        {editingId && (
-                            <Button type="button" size="sm" variant="ghost" icon={UserPlus} onClick={() => setShowInchargeForm(true)}>
-                                Create New Incharge
-                            </Button>
-                        )}
-                     </div>
-                     
-                     {/* Dropdown for Existing Staff */}
-                     {editingId && (
-                         <div className="relative">
-                            <select 
-                                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl appearance-none text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
-                                onChange={handleSelectManager}
-                                defaultValue=""
-                            >
-                                <option value="" disabled>Select from existing site staff...</option>
-                                {siteStaff.map(emp => (
-                                    <option key={emp.uan} value={emp.uan}>{emp.name} ({emp.role}) - {emp.uan}</option>
-                                ))}
-                            </select>
-                            <ChevronDown className="absolute right-4 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <InputField label="Address" required value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} icon={MapPin} />
+                    
+                    {/* Manager Selection */}
+                    <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+                         <div className="flex justify-between items-center mb-3">
+                            <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><UserIcon className="w-3 h-3" /> Site Incharge</label>
+                            {editingId && (
+                                <button type="button" onClick={() => setShowInchargeForm(true)} className="text-xs font-bold text-ios-blue flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg">
+                                    <Plus className="w-3 h-3" /> Create New
+                                </button>
+                            )}
                          </div>
-                     )}
+                         
+                         {editingId && (
+                             <div className="relative mb-3">
+                                <select 
+                                    className="w-full pl-3 pr-8 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm appearance-none outline-none focus:ring-2 focus:ring-blue-500"
+                                    onChange={handleSelectManager}
+                                    defaultValue=""
+                                >
+                                    <option value="" disabled>Select existing staff member...</option>
+                                    {siteStaff.map(emp => (
+                                        <option key={emp.uan} value={emp.uan}>{emp.name} ({emp.role})</option>
+                                    ))}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-3 w-4 h-4 text-slate-400 pointer-events-none" />
+                             </div>
+                         )}
 
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <InputField label="Manager Name" value={formData.managerName || ''} onChange={e => setFormData({...formData, managerName: e.target.value})} />
-                        <InputField label="Manager Mobile" value={formData.managerMobile || ''} onChange={e => setFormData({...formData, managerMobile: e.target.value})} />
+                         <div className="grid grid-cols-2 gap-3">
+                            <InputField label="Name" value={formData.managerName || ''} onChange={e => setFormData({...formData, managerName: e.target.value})} placeholder="Manager Name" />
+                            <InputField label="Mobile" value={formData.managerMobile || ''} onChange={e => setFormData({...formData, managerMobile: e.target.value})} placeholder="Phone" />
+                        </div>
                     </div>
                 </div>
 
-                {/* Contact */}
-                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2"><Phone className="w-4 h-4"/> Contact Info</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <InputField label="Site Email" type="email" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} icon={Mail} />
-                        <InputField label="Site Mobile" type="tel" value={formData.mobile || ''} onChange={e => setFormData({...formData, mobile: e.target.value})} icon={Phone} />
-                    </div>
-                </div>
-
-                {editingId && (
-                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input 
-                                type="checkbox" 
-                                checked={formData.status === SiteStatus.ACTIVE} 
-                                onChange={e => setFormData({...formData, status: e.target.checked ? SiteStatus.ACTIVE : SiteStatus.CLOSED})}
-                                className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300"
-                            />
-                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Site is Operational (Active)</span>
-                        </label>
-                    </div>
-                )}
-
-                <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex gap-3 pt-2">
                     <Button type="button" variant="secondary" onClick={() => setShowModal(false)} className="flex-1">Cancel</Button>
-                    <Button type="submit" variant="primary" isLoading={isSaving} className="flex-1">{editingId ? 'Update Site' : 'Create Site'}</Button>
+                    <Button type="submit" variant="primary" isLoading={isSaving} className="flex-1">Save</Button>
                 </div>
             </form>
          </Modal>
 
-         {/* Create Incharge Form Modal */}
          {editingId && (
             <NewEmployeeForm 
                 isOpen={showInchargeForm}
@@ -300,7 +237,7 @@ export const SiteManagement: React.FC<SiteManagementProps> = ({ sites, onUpdate,
                 user={user}
                 onSuccess={() => {
                     handleInchargeCreated();
-                    showNotification('success', "New Site Incharge Created");
+                    showNotification('success', "Site Incharge Created & Approved");
                 }}
                 showNotification={showNotification}
                 overrideSiteId={editingId}

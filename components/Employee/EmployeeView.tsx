@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, SalaryView, Company, Site } from '../../types';
 import { dbService } from '../../services/mockDb';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Calendar } from 'lucide-react';
 import { SalarySlip } from './SalarySlip';
 import { Card } from '../UI/Card';
 
@@ -54,20 +54,40 @@ const EmployeeView: React.FC<Props> = ({ user }) => {
   if (loading && !salary) return <div className="h-full flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400"><Loader2 className="animate-spin"/> Loading...</div>;
 
   return (
-    <div className="min-h-full bg-slate-100 dark:bg-slate-950 p-4 md:p-8 transition-colors duration-200">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="min-h-full bg-slate-100 dark:bg-black p-3 md:p-8 transition-colors duration-200 pb-safe">
+      <div className="max-w-4xl mx-auto space-y-4">
         {/* Controls */}
-        <Card className="flex justify-between items-center p-6">
-          <h1 className="text-xl font-bold text-slate-800 dark:text-white">My Payslips (UAN: {user.id})</h1>
-          <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} className="bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 text-slate-700 dark:text-slate-300 p-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
-             {availablePeriods.map(p => <option key={`${p.year}-${p.month}`} value={`${p.year}-${p.month}`}>{p.month}/{p.year}</option>)}
-          </select>
+        <Card className="flex flex-col sm:flex-row justify-between items-center p-4 gap-4 sticky top-4 z-30 shadow-lg border-blue-100 dark:border-blue-900/30">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+             <div className="h-10 w-10 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600">
+                <Calendar className="w-5 h-5" />
+             </div>
+             <div>
+                 <h1 className="text-base font-bold text-slate-900 dark:text-white leading-none">Payslip Viewer</h1>
+                 <p className="text-xs text-slate-500 mt-1">UAN: <span className="font-mono">{user.id}</span></p>
+             </div>
+          </div>
+          
+          <div className="relative w-full sm:w-auto">
+              <select 
+                value={selectedPeriod} 
+                onChange={(e) => setSelectedPeriod(e.target.value)} 
+                className="w-full sm:w-48 appearance-none bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white py-2.5 pl-4 pr-10 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              >
+                 {availablePeriods.map(p => <option key={`${p.year}-${p.month}`} value={`${p.year}-${p.month}`}>{new Date(0, p.month-1).toLocaleString('default', {month:'long'})} {p.year}</option>)}
+              </select>
+              <div className="absolute right-3 top-3.5 w-2 h-2 border-r-2 border-b-2 border-slate-400 rotate-45 pointer-events-none"></div>
+          </div>
         </Card>
 
         {salary && companyDetails && siteDetails ? (
-            <SalarySlip user={user} salary={salary} company={companyDetails} site={siteDetails} />
+            <div className="pb-12">
+                <SalarySlip user={user} salary={salary} company={companyDetails} site={siteDetails} />
+            </div>
         ) : (
-            <div className="text-center py-12 text-slate-500 dark:text-slate-400">Select a period to view payslip.</div>
+            <div className="text-center py-20 bg-white dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-300 dark:border-slate-800">
+                <p className="text-slate-400 font-medium">No payslip data for selected period.</p>
+            </div>
         )}
       </div>
     </div>

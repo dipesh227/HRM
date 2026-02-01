@@ -53,65 +53,61 @@ const SiteDashboard: React.FC<Props> = ({ user }) => {
     <div className="flex flex-col h-full bg-ios-bg dark:bg-black relative transition-colors duration-200">
       
       {/* Site Header Card */}
-      <div className="px-4 py-6 md:py-8 max-w-7xl mx-auto w-full">
-        <div className="bg-white dark:bg-ios-dark-card rounded-[2rem] p-6 md:p-8 shadow-ios dark:shadow-none border border-white/50 dark:border-white/5 flex flex-col lg:flex-row justify-between lg:items-center gap-8">
+      <div className="px-3 py-4 md:px-4 md:py-8 max-w-7xl mx-auto w-full">
+        <div className="bg-white dark:bg-ios-dark-card rounded-3xl p-5 md:p-8 shadow-ios dark:shadow-none border border-white/50 dark:border-white/5 flex flex-col lg:flex-row justify-between lg:items-center gap-6">
           
           {/* Info Section */}
-          <div className="flex items-start gap-6">
+          <div className="flex items-start gap-4">
              {siteDetails?.logoUrl ? (
-                 <img src={siteDetails.logoUrl} alt="Logo" className="w-20 h-20 rounded-2xl border border-slate-100 dark:border-white/10 object-cover shadow-sm bg-white dark:bg-white/5" />
+                 <img src={siteDetails.logoUrl} alt="Logo" className="w-16 h-16 rounded-2xl border border-slate-100 dark:border-white/10 object-cover bg-white" />
              ) : (
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 flex items-center justify-center border border-white/20">
-                    <Building2 className="w-8 h-8 text-slate-400" />
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                    <Building2 className="w-8 h-8" />
                 </div>
              )}
-             <div className="flex-1">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">{siteDetails?.name || 'Unknown Site'}</h2>
+             <div className="min-w-0 flex-1">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+                    <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight truncate">{siteDetails?.name}</h2>
                     {isSiteClosed && <Badge variant="danger" className="self-start">CLOSED</Badge>}
                 </div>
-                <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base leading-relaxed font-medium">{siteDetails?.address}</p>
-                <div className="mt-3 flex gap-2">
-                    <Badge variant="neutral" className="text-[10px] tracking-wider uppercase">{siteDetails?.city}</Badge>
-                    <Badge variant="neutral" className="text-[10px] tracking-wider uppercase">{siteDetails?.state}</Badge>
-                </div>
+                <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-1">{siteDetails?.address}</p>
              </div>
           </div>
           
           {/* Actions Section */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto bg-slate-50 dark:bg-black/20 p-2 rounded-3xl border border-slate-100 dark:border-white/5">
-             <div className="flex-1 sm:flex-none flex items-center justify-between sm:justify-center gap-4 px-6 py-3 rounded-2xl bg-white dark:bg-white/5 shadow-sm border border-slate-100 dark:border-white/5">
+          <div className="flex gap-3 w-full lg:w-auto">
+             <div className="flex-1 lg:flex-none flex items-center justify-between gap-4 px-4 py-3 rounded-2xl bg-white dark:bg-white/5 border border-slate-100 dark:border-white/5 shadow-sm">
                 <div className="text-xs text-slate-400 uppercase font-bold tracking-widest">Compliance</div>
-                <div className={`text-2xl font-bold ${complianceScore === 100 ? 'text-green-500' : 'text-orange-500'}`}>{complianceScore}%</div>
+                <div className={`text-xl font-bold ${complianceScore === 100 ? 'text-green-500' : 'text-orange-500'}`}>{complianceScore}%</div>
              </div>
              {!isSiteClosed && (
-                <Button onClick={() => setShowAddForm(true)} icon={UserPlus} className="h-full flex-1 sm:flex-none shadow-glow">Add Staff</Button>
+                <Button onClick={() => setShowAddForm(true)} icon={UserPlus} className="flex-1 lg:flex-none shadow-lg shadow-blue-500/20">Add Staff</Button>
              )}
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 px-4 pb-12 max-w-7xl mx-auto w-full space-y-8">
+      <main className="flex-1 px-3 md:px-4 pb-safe max-w-7xl mx-auto w-full space-y-6">
         
-        {/* Stats Grid - Horizontal Scroll on Mobile with Snap */}
-        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-4 px-4 snap-x md:grid md:grid-cols-4 md:mx-0 md:px-0 md:overflow-visible md:pb-0">
-           <div className="snap-start min-w-[160px] md:min-w-0">
+        {/* Stats Grid - Horizontal Scroll on Mobile */}
+        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 -mx-3 px-3 snap-x md:grid md:grid-cols-4 md:mx-0 md:px-0 md:pb-0 touch-pan-x">
+           <div className="snap-start min-w-[140px] md:min-w-0">
               <StatCard icon={Users} value={employees.length} title="Total Staff" color="blue" />
            </div>
-           <div className="snap-start min-w-[160px] md:min-w-0">
+           <div className="snap-start min-w-[140px] md:min-w-0">
               <StatCard icon={AlertTriangle} value={employees.filter(e => e.status === EmployeeStatus.PENDING).length} title="Pending" color="orange" />
            </div>
-           <div className="snap-start min-w-[160px] md:min-w-0">
+           <div className="snap-start min-w-[140px] md:min-w-0">
               <StatCard icon={ShieldCheck} value={employees.filter(e => e.status === EmployeeStatus.APPROVED).length} title="Active" color="green" />
            </div>
-           <div className="snap-start min-w-[160px] md:min-w-0">
+           <div className="snap-start min-w-[140px] md:min-w-0">
               <StatCard icon={ClipboardCheck} value="100%" title="Docs" color="purple" />
            </div>
         </div>
 
-        <div className="space-y-4">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white px-2">Staff Roster</h3>
+        <div className="space-y-3">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white px-1">Staff Roster</h3>
             <EmployeeList employees={employees} />
         </div>
       </main>
