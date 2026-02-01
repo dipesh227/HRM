@@ -2,23 +2,36 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
     <title>Konark HR System</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+              sans: ['-apple-system', 'BlinkMacSystemFont', 'Inter', 'Segoe UI', 'Roboto', 'sans-serif'],
             },
             colors: {
-              slate: {
-                850: '#151e2e',
-                950: '#020617',
+              ios: {
+                blue: '#007AFF',
+                green: '#34C759',
+                red: '#FF3B30',
+                orange: '#FF9500',
+                gray: '#8E8E93',
+                bg: '#F2F2F7',
+                card: '#FFFFFF',
+                dark: {
+                    bg: '#000000',
+                    card: '#1C1C1E',
+                }
               }
+            },
+            boxShadow: {
+                'ios': '0 4px 20px rgba(0,0,0,0.08)',
+                'ios-float': '0 8px 30px rgba(0,0,0,0.12)',
             }
           },
         },
@@ -26,45 +39,20 @@
     </script>
     <style>
       body {
-        font-family: 'Inter', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        /* Safe area for iPhone X+ */
+        padding-bottom: env(safe-area-inset-bottom);
       }
-      /* Custom Scrollbar for dashboards */
-      ::-webkit-scrollbar {
-        width: 8px;
+      /* Hide scrollbar but keep functionality for horizontal pills */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
       }
-      ::-webkit-scrollbar-track {
-        background: transparent; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #cbd5e1; 
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8; 
-      }
-      .dark ::-webkit-scrollbar-thumb {
-        background: #475569;
-      }
-      .dark ::-webkit-scrollbar-thumb:hover {
-        background: #64748b;
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
     </style>
-    <!-- Global Error Handler for White Screen Debugging -->
-    <script>
-      window.addEventListener('error', function(e) {
-        // Wait a moment to see if React mounts, otherwise show error
-        setTimeout(() => {
-            if (!document.getElementById('root').hasChildNodes()) {
-            document.body.innerHTML = '<div style="padding:20px; color:#ef4444; font-family:sans-serif; max-width:800px; margin:0 auto; margin-top:50px; background:white; border-radius:12px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.1); border:1px solid #fee2e2;">' + 
-            '<h2 style="margin-top:0; font-size:1.5rem; font-weight:700;">System Error</h2>' +
-            '<p style="color:#374151;">The application failed to start.</p>' +
-            '<pre style="background:#f3f4f6; padding:15px; border-radius:8px; overflow:auto; font-size:0.85rem; color:#1f2937; border:1px solid #e5e7eb;">' + (e.error ? e.error.stack : e.message) + '</pre>' +
-            '<button onclick="window.location.reload()" style="margin-top:20px; background:#1f2937; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer; font-weight:600;">Reload Application</button>' +
-            '</div>';
-            }
-        }, 1000);
-      });
-    </script>
     <script type="importmap">
 {
   "imports": {
@@ -83,7 +71,7 @@
 }
 </script>
 </head>
-  <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
+  <body class="bg-ios-bg dark:bg-ios-dark-bg text-slate-900 dark:text-slate-100 transition-colors duration-200 selection:bg-ios-blue selection:text-white">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

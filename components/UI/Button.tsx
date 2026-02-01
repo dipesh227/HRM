@@ -6,36 +6,38 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   icon?: LucideIcon;
+  fullWidth?: boolean;
 }
 
 export const Button: React.FC<ButtonProps> = ({ 
-  children, variant = 'primary', size = 'md', isLoading, icon: Icon, className = '', disabled, ...props 
+  children, variant = 'primary', size = 'md', isLoading, icon: Icon, className = '', disabled, fullWidth = false, ...props 
 }) => {
-  const baseStyles = "rounded-lg font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed";
+  const baseStyles = "relative font-semibold transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]";
+  const widthClass = fullWidth ? 'w-full' : '';
+  const roundedClass = "rounded-xl md:rounded-2xl"; // Squircle-ish
   
   const variants = {
-    primary: "bg-slate-800 dark:bg-blue-600 text-white hover:bg-slate-900 dark:hover:bg-blue-700 shadow-sm",
-    secondary: "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700",
-    danger: "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/50 dark:hover:bg-red-900/30",
-    outline: "border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-    ghost: "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50"
+    primary: "bg-ios-blue text-white hover:bg-blue-600 shadow-lg shadow-blue-500/30 border border-transparent",
+    secondary: "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border border-transparent hover:bg-slate-200 dark:hover:bg-slate-700",
+    danger: "bg-red-50 text-ios-red border border-red-100 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/30",
+    outline: "border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 bg-transparent",
+    ghost: "text-ios-blue hover:bg-blue-50 dark:hover:bg-blue-900/20"
   };
 
   const sizes = {
-    sm: "px-3 py-1.5 text-xs",
-    md: "px-4 py-2 text-sm",
-    lg: "px-6 py-3 text-base"
+    sm: "px-3 py-1.5 text-xs min-h-[32px]",
+    md: "px-5 py-2.5 text-sm min-h-[44px]", // 44px is standard iOS touch target
+    lg: "px-8 py-3.5 text-base min-h-[52px]"
   };
 
   return (
     <button 
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`} 
+      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${widthClass} ${roundedClass} ${className}`} 
       disabled={isLoading || disabled} 
       {...props}
     >
-      {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-      {!isLoading && Icon && <Icon className="w-4 h-4" />}
-      {children}
+      {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : Icon && <Icon className="w-4.5 h-4.5" />}
+      <span>{children}</span>
     </button>
   );
 };

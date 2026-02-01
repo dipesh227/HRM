@@ -1,6 +1,6 @@
 import React from 'react';
-import { User, UserRole, Notification } from '../../types';
-import { LogOut, Bell, Moon, Sun } from 'lucide-react';
+import { User, Notification } from '../../types';
+import { LogOut, Bell, Moon, Sun, Menu } from 'lucide-react';
 
 interface NavbarProps {
   user: User;
@@ -18,80 +18,82 @@ export const Navbar: React.FC<NavbarProps> = ({
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
-    <nav className="bg-slate-900 dark:bg-slate-950 text-white px-4 md:px-6 py-3 shadow-lg flex justify-between items-center z-50 sticky top-0 border-b border-slate-800 dark:border-slate-800">
-      <div className="flex items-center gap-3">
-        <div className="bg-blue-600 h-10 w-10 rounded-lg flex items-center justify-center font-bold text-sm text-white shadow-blue-500/50 shadow-sm border border-blue-500">KE</div>
-        <div className="flex flex-col">
-          <span className="font-bold tracking-tight text-lg leading-none mb-0.5">Konark Enterprises</span>
-          <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-200">{user.name}</span>
-              <span className="px-1.5 py-px rounded bg-slate-800 text-[10px] text-slate-400 border border-slate-700 font-mono tracking-wide uppercase leading-none">
-                {user.role.replace('_', ' ')}
-              </span>
-          </div>
-        </div>
-      </div>
-      
-      <div className="flex items-center gap-3">
-        {/* Theme Toggle */}
-        <button 
-          onClick={toggleTheme}
-          className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors text-slate-300"
-          title={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
-        >
-          {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-        </button>
+    <>
+    <nav className="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 saturate-150 transition-colors duration-300">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+            
+            {/* Branding */}
+            <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-tr from-ios-blue to-blue-600 h-9 w-9 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">KE</div>
+                <div className="flex flex-col">
+                    <span className="font-bold text-slate-900 dark:text-white tracking-tight leading-none">Konark HR</span>
+                    <span className="text-[10px] uppercase font-semibold text-slate-500 tracking-wider mt-0.5">{user.role.replace('_', ' ')}</span>
+                </div>
+            </div>
 
-        {/* Notification Bell */}
-        <div className="relative">
-          <button 
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors relative"
-          >
-              <Bell className="w-5 h-5 text-slate-300" />
-              {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-slate-900 animate-pulse"></span>
-              )}
-          </button>
-          
-          {showNotifications && (
-              <div className="absolute right-0 top-12 w-80 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
-                  <div className="bg-slate-50 dark:bg-slate-800 px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                      <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">Notifications</h4>
-                      <span className="text-xs bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 rounded">{notifications.length}</span>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                          <div className="p-4 text-center text-xs text-slate-400 dark:text-slate-500">No new notifications</div>
-                      ) : (
-                          notifications.map(n => (
-                              <div key={n.id} className={`p-3 border-b border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer ${!n.isRead ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}>
-                                  <div className="flex gap-2">
-                                      <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${n.type === 'ALERT' ? 'bg-red-500' : n.type === 'SUCCESS' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
-                                      <div>
-                                          <p className="text-sm text-slate-800 dark:text-slate-200 leading-tight">{n.message}</p>
-                                          <p className="text-xs text-slate-400 mt-1">{new Date(n.timestamp).toLocaleTimeString()}</p>
-                                      </div>
-                                  </div>
-                              </div>
-                          ))
-                      )}
-                  </div>
-              </div>
-          )}
-        </div>
+            {/* Actions */}
+            <div className="flex items-center gap-2 sm:gap-4">
+                <button 
+                    onClick={toggleTheme}
+                    className="p-2.5 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                    {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                </button>
 
-        <div className="text-right hidden sm:block border-l border-slate-700 pl-4">
-          <div className="text-xs text-slate-400 max-w-[150px] truncate">{user.email || user.id}</div>
+                <div className="relative">
+                    <button 
+                        onClick={() => setShowNotifications(!showNotifications)}
+                        className="p-2.5 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors relative"
+                    >
+                        <Bell className="w-5 h-5" />
+                        {unreadCount > 0 && (
+                            <span className="absolute top-2 right-2.5 w-2 h-2 bg-ios-red rounded-full ring-2 ring-white dark:ring-black"></span>
+                        )}
+                    </button>
+                    
+                    {/* Notification Dropdown (Glass) */}
+                    {showNotifications && (
+                        <div className="absolute right-0 top-14 w-80 bg-white/90 dark:bg-ios-dark-card/90 backdrop-blur-2xl rounded-2xl shadow-ios-float border border-slate-200/50 dark:border-slate-700/50 overflow-hidden z-50 animate-fade-in-up origin-top-right">
+                            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">
+                                <h4 className="font-semibold text-sm">Notifications</h4>
+                            </div>
+                            <div className="max-h-64 overflow-y-auto p-2">
+                                {notifications.length === 0 ? (
+                                    <div className="p-4 text-center text-xs text-slate-400">No new notifications</div>
+                                ) : (
+                                    notifications.map(n => (
+                                        <div key={n.id} className="p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors mb-1 last:mb-0">
+                                            <p className="text-sm text-slate-900 dark:text-white leading-snug">{n.message}</p>
+                                            <p className="text-xs text-slate-400 mt-1">{new Date(n.timestamp).toLocaleTimeString()}</p>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
+
+                <button 
+                    onClick={onLogout}
+                    className="hidden sm:flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 rounded-full text-sm font-medium transition-all"
+                >
+                    <LogOut className="w-4 h-4" />
+                    <span>Logout</span>
+                </button>
+                
+                {/* Mobile Logout Icon only */}
+                <button onClick={onLogout} className="sm:hidden p-2.5 text-slate-500 hover:text-red-600">
+                    <LogOut className="w-5 h-5" />
+                </button>
+            </div>
         </div>
-        <button 
-          onClick={onLogout}
-          className="p-2 bg-slate-800 hover:bg-red-900/50 hover:text-red-200 rounded-lg transition-colors"
-          title="Logout"
-        >
-          <LogOut className="w-5 h-5" />
-        </button>
       </div>
     </nav>
+    {/* Spacer for fixed navbar */}
+    <div className="h-16"></div>
+    </>
   );
 };

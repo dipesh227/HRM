@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UserRole, User } from '../../types';
 import { dbService } from '../../services/mockDb';
 import { UserCircle, Lock, Building, Users, Loader2, BadgeCheck, HardHat, Briefcase, ArrowRight } from 'lucide-react';
+import { InputField } from '../UI/InputField';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -9,11 +10,12 @@ interface LoginProps {
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.HR);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [uan, setUan] = useState('');
+  const [formData, setFormData] = useState({ email: '', password: '', uan: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Helper to update form data
+  const updateForm = (key: string, value: string) => setFormData(prev => ({ ...prev, [key]: value }));
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,10 +24,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
     try {
         if (selectedRole === UserRole.HR) {
-            const user = await dbService.loginHR(email, password);
+            const user = await dbService.loginHR(formData.email, formData.password);
             onLogin(user);
         } else {
-            const user = await dbService.loginStaff(uan);
+            const user = await dbService.loginStaff(formData.uan);
             onLogin(user);
         }
     } catch (err: any) {
@@ -35,6 +37,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
   };
 
+  const roles = [
+    { id: UserRole.HR, label: 'HR Admin', icon: Lock },
+    { id: UserRole.SITE_INCHARGE, label: 'Site Manager', icon: Briefcase },
+    { id: UserRole.EMPLOYEE, label: 'Employee', icon: HardHat },
+  ];
+
   return (
     <div className="min-h-screen bg-[conic-gradient(at_top_right,_var(--tw-gradient-stops))] from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background Decor */}
@@ -42,6 +50,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       <div className="absolute top-1/2 -right-24 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl"></div>
 
       <div className="bg-white/10 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-white/20 relative z-10 animate-fade-in-up">
+        
         {/* Header */}
         <div className="p-8 text-center border-b border-white/5">
           <div className="inline-flex h-14 w-14 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl items-center justify-center mb-4 shadow-lg shadow-blue-900/50 border border-white/10 transform rotate-3 hover:rotate-6 transition-transform">
@@ -54,91 +63,66 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <div className="p-8">
           {/* Role Tabs */}
           <div className="flex p-1 bg-black/20 rounded-xl mb-8 relative">
-            <button 
-              type="button"
-              onClick={() => { setSelectedRole(UserRole.HR); setError(''); }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all relative z-10 ${selectedRole === UserRole.HR ? 'text-white bg-blue-600 shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-            >
-                <Lock className="w-3.5 h-3.5" /> 
-                HR Admin
-            </button>
-            <button 
-              type="button"
-              onClick={() => { setSelectedRole(UserRole.SITE_INCHARGE); setError(''); }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all relative z-10 ${selectedRole === UserRole.SITE_INCHARGE ? 'text-white bg-blue-600 shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-            >
-                <Briefcase className="w-3.5 h-3.5" /> 
-                Site Manager
-            </button>
-            <button 
-              type="button"
-              onClick={() => { setSelectedRole(UserRole.EMPLOYEE); setError(''); }}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all relative z-10 ${selectedRole === UserRole.EMPLOYEE ? 'text-white bg-blue-600 shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-            >
-                <HardHat className="w-3.5 h-3.5" /> 
-                Employee
-            </button>
+            {roles.map((role) => {
+                const Icon = role.icon;
+                const isActive = selectedRole === role.id;
+                return (
+                    <button 
+                        key={role.id}
+                        type="button"
+                        onClick={() => { setSelectedRole(role.id); setError(''); }}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all relative z-10 ${isActive ? 'text-white bg-blue-600 shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                    >
+                        <Icon className="w-3.5 h-3.5" /> 
+                        {role.label}
+                    </button>
+                );
+            })}
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
             {selectedRole === UserRole.HR ? (
                 <>
-                    <div className="group">
-                        <label className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider group-focus-within:text-blue-400 transition-colors">Email Address</label>
-                        <div className="relative">
-                            <UserCircle className="absolute left-3 top-3.5 h-5 w-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
-                            <input 
-                                type="email" 
-                                required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-black/20 border border-white/10 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 outline-none transition-all placeholder:text-slate-600"
-                                placeholder="admin@konark.com"
-                                disabled={loading}
-                            />
-                        </div>
-                    </div>
-                    <div className="group">
-                        <label className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider group-focus-within:text-blue-400 transition-colors">Password</label>
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-3.5 h-5 w-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
-                            <input 
-                                type="password" 
-                                required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-black/20 border border-white/10 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 outline-none transition-all placeholder:text-slate-600"
-                                placeholder="••••••••"
-                                disabled={loading}
-                            />
-                        </div>
-                    </div>
+                    <InputField 
+                        label="Email Address" 
+                        icon={UserCircle} 
+                        type="email" 
+                        required 
+                        placeholder="admin@konark.com"
+                        value={formData.email}
+                        onChange={e => updateForm('email', e.target.value)}
+                        className="dark:bg-transparent"
+                    />
+                     <InputField 
+                        label="Password" 
+                        icon={Lock} 
+                        type="password" 
+                        required 
+                        placeholder="••••••••"
+                        value={formData.password}
+                        onChange={e => updateForm('password', e.target.value)}
+                        className="dark:bg-transparent"
+                    />
                 </>
             ) : (
-                <div className="group">
-                    <label className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider group-focus-within:text-blue-400 transition-colors">
-                        {selectedRole === UserRole.SITE_INCHARGE ? 'Manager UAN' : 'Employee UAN'} (12-Digit)
-                    </label>
-                    <div className="relative">
-                        <BadgeCheck className="absolute left-3 top-3.5 h-5 w-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
-                        <input 
-                            type="text" 
-                            required
-                            pattern="\d{12}"
-                            title="12 Digit Numeric UAN"
-                            value={uan}
-                            onChange={(e) => setUan(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 bg-black/20 border border-white/10 text-white rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 outline-none font-mono tracking-wider transition-all placeholder:text-slate-600"
-                            placeholder="100000000001"
-                            disabled={loading}
-                        />
-                    </div>
-                    <p className="text-xs text-slate-500 mt-2 pl-1">
+                <>
+                     <InputField 
+                        label={selectedRole === UserRole.SITE_INCHARGE ? 'Manager UAN' : 'Employee UAN'} 
+                        icon={BadgeCheck} 
+                        type="text" 
+                        required 
+                        pattern="\d{12}"
+                        placeholder="100000000001"
+                        value={formData.uan}
+                        onChange={e => updateForm('uan', e.target.value)}
+                        className="dark:bg-transparent font-mono tracking-wider"
+                    />
+                    <p className="text-xs text-slate-400 mt-2 pl-1">
                         {selectedRole === UserRole.SITE_INCHARGE 
                             ? "Use your assigned Universal Account Number." 
                             : "Enter UAN to view payslips securely."}
                     </p>
-                </div>
+                </>
             )}
 
             {error && (
