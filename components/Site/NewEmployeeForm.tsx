@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../UI/Button';
 import { Modal } from '../UI/Modal';
-import { Employee, EmployeeRole, EmployeeStatus, User } from '../../types';
+import { Employee, EmployeeRole, EmployeeStatus, User, UserRole } from '../../types';
 import { dbService } from '../../services/mockDb';
 import { UserPlus, BadgeCheck, User as UserIcon } from 'lucide-react';
 
@@ -37,7 +37,7 @@ export const NewEmployeeForm: React.FC<NewEmployeeFormProps> = ({
     const targetSiteId = overrideSiteId || user.siteId;
 
     if (!targetCompanyId || !targetSiteId) {
-        showNotification('error', "System Error: Target Site ID missing.");
+        showNotification('error', "System Error: Target Site ID missing. Please ensure a site is selected.");
         return;
     }
 
@@ -60,7 +60,7 @@ export const NewEmployeeForm: React.FC<NewEmployeeFormProps> = ({
       // Automatic Approval logic:
       // 1. If HR creates an employee (or supervisor), auto-approve.
       // 2. If Supervisor creates an employee, it stays pending.
-      if (user.role === 'HR') {
+      if (user.role === UserRole.HR) {
           await dbService.approveEmployee(emp.uan, true, user.id);
           showNotification('success', `${emp.role} created and approved.`);
       } else {
@@ -76,6 +76,19 @@ export const NewEmployeeForm: React.FC<NewEmployeeFormProps> = ({
         setIsSubmitting(false);
     }
   };
+
+  // Logic to filter roles based on permissions
+  const availableRoles = Object.values(EmployeeRole).filter(r => {
+      // HR can add anyone (including Supervisors)
+      if (user.role === UserRole.HR) return true;
+      
+      // Site Incharges cannot add other Supervisors, only staff
+      if (user.role === UserRole.SITE_INCHARGE) {
+          return r !== EmployeeRole.SUPERVISOR;
+      }
+      
+      return false;
+  });
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={defaultRole === EmployeeRole.SUPERVISOR ? "Register Site Incharge" : "Add New Employee"}>
@@ -122,7 +135,7 @@ export const NewEmployeeForm: React.FC<NewEmployeeFormProps> = ({
                             onChange={e => setNewEmp({...newEmp, role: e.target.value as EmployeeRole})}
                             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none appearance-none text-base"
                         >
-                            {Object.values(EmployeeRole).map(r => (
+                            {availableRoles.map(r => (
                                 <option key={r} value={r}>{r}</option>
                             ))}
                         </select>

@@ -71,7 +71,8 @@ const SiteDashboard: React.FC<Props> = ({ user, isSidebarOpen, onSidebarClose, o
             tabs={tabs} 
             activeTab="dashboard" 
             onTabChange={() => {}} // Single view for now
-            onAddEmployee={!isSiteClosed ? () => setShowAddForm(true) : undefined}
+            // Site Incharge can only add regular staff
+            onAddStaff={!isSiteClosed ? () => setShowAddForm(true) : undefined}
             onLogout={onLogout}
           />
       )}

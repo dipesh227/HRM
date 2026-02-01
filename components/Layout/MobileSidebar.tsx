@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, UserRole } from '../../types';
-import { X, LogOut, ChevronRight, UserPlus, Building2, UserCircle } from 'lucide-react';
+import { X, LogOut, ChevronRight, UserPlus, Building2, UserCircle, Briefcase } from 'lucide-react';
 import { Button } from '../UI/Button';
 
 interface TabItem {
@@ -17,12 +17,17 @@ interface MobileSidebarProps {
     tabs: TabItem[];
     activeTab: string;
     onTabChange: (id: string) => void;
-    onAddEmployee?: () => void;
+    
+    // Actions for specific roles
+    onAddStaff?: () => void;
+    onAddSupervisor?: () => void;
+    
     onLogout: () => void;
 }
 
 export const MobileSidebar: React.FC<MobileSidebarProps> = ({ 
-    isOpen, onClose, user, tabs, activeTab, onTabChange, onAddEmployee, onLogout 
+    isOpen, onClose, user, tabs, activeTab, onTabChange, 
+    onAddStaff, onAddSupervisor, onLogout 
 }) => {
     
     // Lock body scroll when sidebar is open
@@ -40,7 +45,7 @@ export const MobileSidebar: React.FC<MobileSidebarProps> = ({
                 onClick={onClose}
             />
 
-            {/* Sidebar Drawer */}
+            {/* Sidebar Drawer - Fixed Left */}
             <div className={`
                 fixed top-0 left-0 bottom-0 w-[80%] max-w-xs bg-white dark:bg-ios-dark-card z-[100] shadow-2xl transform transition-transform duration-300 ease-out border-r border-slate-100 dark:border-white/5 flex flex-col
                 ${isOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -83,7 +88,7 @@ export const MobileSidebar: React.FC<MobileSidebarProps> = ({
                                 <Icon className={`w-5 h-5 ${isActive ? 'text-ios-blue' : 'text-slate-400'}`} />
                                 <span className="flex-1 text-left">{tab.label}</span>
                                 {tab.badge ? (
-                                    <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{tab.badge}</span>
+                                    <span className="bg-red-50 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{tab.badge}</span>
                                 ) : isActive && (
                                     <ChevronRight className="w-4 h-4 text-ios-blue" />
                                 )}
@@ -94,18 +99,34 @@ export const MobileSidebar: React.FC<MobileSidebarProps> = ({
 
                 {/* Footer Actions */}
                 <div className="p-4 border-t border-slate-100 dark:border-white/5 space-y-3 bg-slate-50/50 dark:bg-black/20 safe-pb">
-                    {/* Add Employee Button in Sider */}
-                    {onAddEmployee && (
+                    <p className="px-1 text-xs font-bold text-slate-400 uppercase tracking-wider">Quick Actions</p>
+                    
+                    {/* HR: Add Supervisor */}
+                    {onAddSupervisor && (
+                         <Button 
+                            fullWidth 
+                            variant="secondary" 
+                            icon={Briefcase} 
+                            onClick={() => { onAddSupervisor(); onClose(); }}
+                        >
+                            Register Site Manager
+                        </Button>
+                    )}
+
+                    {/* HR/Supervisor: Add Staff */}
+                    {onAddStaff && (
                          <Button 
                             fullWidth 
                             variant="primary" 
                             icon={UserPlus} 
-                            onClick={() => { onAddEmployee(); onClose(); }}
+                            onClick={() => { onAddStaff(); onClose(); }}
                             className="shadow-xl"
                         >
-                            Add New Employee
+                            Add New Staff
                         </Button>
                     )}
+
+                    <div className="h-px bg-slate-200 dark:bg-white/10 my-2"></div>
 
                     <button 
                         onClick={() => { onLogout(); onClose(); }}

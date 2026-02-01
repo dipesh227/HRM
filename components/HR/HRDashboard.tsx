@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../../services/mockDb';
-import { Site, AuditLog, User } from '../../types';
+import { Site, AuditLog, User, EmployeeRole } from '../../types';
 import { 
   Building2, CheckCircle, FileSpreadsheet, Activity, ShieldAlert,
-  AlertTriangle, CheckCircle as CheckIcon, X, Briefcase, UserCircle
+  AlertTriangle, CheckCircle as CheckIcon, X, Briefcase, UserCircle, Users
 } from 'lucide-react';
 
 import { HRStats } from './HRStats';
@@ -12,7 +12,9 @@ import { SiteManagement } from './SiteManagement';
 import { SalaryProcessing } from './SalaryProcessing';
 import { CompanyProfile } from './CompanyProfile';
 import { HRProfile } from './HRProfile';
+import { EmployeeDirectory } from './EmployeeDirectory'; // New Component
 import { MobileSidebar } from '../Layout/MobileSidebar';
+import { NewEmployeeForm } from '../Site/NewEmployeeForm';
 
 interface HRDashboardProps {
     user?: User;
@@ -26,9 +28,13 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user, isSidebarOpen, onSideba
   const [stats, setStats] = useState<any>({});
   const [sites, setSites] = useState<Site[]>([]);
   const [pendingEmployees, setPendingEmployees] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'company' | 'sites' | 'approvals' | 'salary' | 'audit' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'employees' | 'company' | 'sites' | 'approvals' | 'salary' | 'audit' | 'profile'>('overview');
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+  // Modal States for Sidebar Actions
+  const [showAddStaffModal, setShowAddStaffModal] = useState(false);
+  const [showAddSupervisorModal, setShowAddSupervisorModal] = useState(false);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
       setFeedback({ type, message });
@@ -59,6 +65,7 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user, isSidebarOpen, onSideba
 
   const tabs = [
       { id: 'overview', label: 'Overview', icon: Activity },
+      { id: 'employees', label: 'Staff Directory', icon: Users }, // New Tab
       { id: 'company', label: 'Company', icon: Briefcase },
       { id: 'sites', label: 'Sites', icon: Building2 },
       { id: 'approvals', label: 'Approvals', icon: CheckCircle, badge: pendingEmployees.length },
@@ -80,16 +87,16 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user, isSidebarOpen, onSideba
             activeTab={activeTab} 
             onTabChange={(id) => setActiveTab(id as any)}
             onLogout={onLogout}
-            // HR typically adds users via Site Management, but if global add is needed:
-            // onAddEmployee={() => { setActiveTab('sites'); /* Logic to open modal in site mgmt */ }}
+            // HR Specific Actions
+            onAddStaff={() => setShowAddStaffModal(true)}
+            onAddSupervisor={() => setShowAddSupervisorModal(true)}
           />
       )}
 
-      {/* Desktop Tabs / Mobile Horizontal Scroll (Hidden if we only want sidebar, but usually good to keep for quick access) */}
+      {/* Desktop Tabs */}
       <div className="bg-white/90 dark:bg-black/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-white/10 sticky top-16 md:top-20 z-40 pt-3 pb-3 px-4 sm:px-6 lg:px-8 transition-all duration-300 hidden md:block">
         <div className="max-w-7xl mx-auto">
             <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-3 md:mb-4 tracking-tight px-1 hidden sm:block">Dashboard Overview</h1>
-            
             <div className="flex gap-2 md:gap-3 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth snap-x touch-pan-x">
                 {tabs.map(tab => {
                     const isActive = activeTab === tab.id;
@@ -119,7 +126,7 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user, isSidebarOpen, onSideba
         </div>
       </div>
 
-      {/* Mobile Header Title (Replaces tabs on mobile since they are in sidebar now) */}
+      {/* Mobile Header Title */}
       <div className="md:hidden px-4 py-3 bg-white/90 dark:bg-black/80 backdrop-blur border-b border-slate-100 dark:border-white/10 sticky top-16 z-30 flex items-center justify-between">
             <h2 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
                 {React.createElement(tabs.find(t => t.id === activeTab)?.icon || Activity, { className: "w-5 h-5 text-ios-blue" })}
@@ -127,7 +134,7 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user, isSidebarOpen, onSideba
             </h2>
       </div>
 
-      {/* Notifications Toast */}
+      {/* Notifications */}
       {feedback && (
           <div className="fixed top-24 md:top-28 right-4 left-4 sm:left-auto sm:w-96 z-[60] animate-slide-up">
             <div className={`p-4 rounded-3xl shadow-ios-float backdrop-blur-xl border flex items-center gap-3 ${feedback.type === 'success' ? 'bg-white/90 border-green-200 text-green-800' : 'bg-white/90 border-red-200 text-red-800'}`}>
@@ -142,6 +149,7 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user, isSidebarOpen, onSideba
       <main className="flex-1 p-3 md:p-6 lg:p-8 max-w-7xl mx-auto w-full pb-safe">
         <div className="animate-fade-in space-y-6 md:space-y-8">
             {activeTab === 'overview' && <HRStats stats={stats} />}
+            {activeTab === 'employees' && <EmployeeDirectory sites={sites} showNotification={showNotification} />}
             {activeTab === 'company' && <CompanyProfile showNotification={showNotification} />}
             {activeTab === 'sites' && user && <SiteManagement sites={sites} onUpdate={loadData} showNotification={showNotification} user={user} />}
             {activeTab === 'approvals' && <PendingApprovals employees={pendingEmployees} onUpdate={loadData} showNotification={showNotification} />}
@@ -170,6 +178,35 @@ const HRDashboard: React.FC<HRDashboardProps> = ({ user, isSidebarOpen, onSideba
             )}
         </div>
       </main>
+
+      {/* Hidden Modals Triggered by Sidebar */}
+      {user && (
+          <>
+            <NewEmployeeForm 
+                isOpen={showAddStaffModal}
+                onClose={() => setShowAddStaffModal(false)}
+                user={user}
+                onSuccess={() => { loadData(); showNotification('success', "Staff Added"); }}
+                showNotification={showNotification}
+                defaultRole={EmployeeRole.HELPER}
+                // For HR, we need a way to pick site - usually done via Site Management tab, 
+                // but if global add is needed, we'd need a site selector in the form.
+                // Assuming HR uses the Site Mgmt tab primarily, but for quick add:
+                overrideSiteId={sites.length > 0 ? sites[0].id : undefined} 
+                overrideCompanyId={user.companyId}
+            />
+             <NewEmployeeForm 
+                isOpen={showAddSupervisorModal}
+                onClose={() => setShowAddSupervisorModal(false)}
+                user={user}
+                onSuccess={() => { loadData(); showNotification('success', "Supervisor Added"); }}
+                showNotification={showNotification}
+                defaultRole={EmployeeRole.SUPERVISOR}
+                overrideSiteId={sites.length > 0 ? sites[0].id : undefined}
+                overrideCompanyId={user.companyId}
+            />
+          </>
+      )}
     </div>
   );
 };

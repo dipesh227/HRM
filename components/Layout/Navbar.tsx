@@ -10,7 +10,7 @@ interface NavbarProps {
   notifications: Notification[];
   showNotifications: boolean;
   setShowNotifications: (show: boolean) => void;
-  onMenuClick: () => void; // New prop
+  onMenuClick: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
@@ -33,33 +33,23 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-20 transition-all duration-300">
             
-            {/* Left: Menu & Brand */}
-            <div className="flex items-center gap-3 md:gap-4 max-w-[70%]">
-                {/* Mobile Menu Button */}
-                <button 
-                    onClick={onMenuClick}
-                    className="md:hidden p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors"
-                >
-                    <Menu className="w-6 h-6" />
-                </button>
-
-                <div className="flex items-center gap-3 group cursor-default">
-                    <div className="relative shrink-0">
-                        <div className="absolute inset-0 bg-blue-500 rounded-2xl blur-lg opacity-20 group-hover:opacity-40 transition-opacity"></div>
-                        <div className="relative bg-gradient-to-tr from-ios-blue to-blue-600 h-9 w-9 md:h-11 md:w-11 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold text-base md:text-lg shadow-lg shadow-blue-500/20 transform group-hover:scale-105 transition-transform duration-300">KE</div>
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                        <span className="font-bold text-base md:text-lg text-slate-900 dark:text-white tracking-tight leading-none truncate">Konark HR</span>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-1.5 mt-0.5 md:mt-1">
-                            <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-widest group-hover:text-ios-blue transition-colors truncate">
-                                {getRoleLabel(user.role)}
-                            </span>
-                        </div>
+            {/* Left: Branding */}
+            <div className="flex items-center gap-3 md:gap-4 max-w-[70%] group cursor-default">
+                <div className="relative shrink-0">
+                    <div className="absolute inset-0 bg-blue-500 rounded-2xl blur-lg opacity-20 group-hover:opacity-40 transition-opacity"></div>
+                    <div className="relative bg-gradient-to-tr from-ios-blue to-blue-600 h-9 w-9 md:h-11 md:w-11 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold text-base md:text-lg shadow-lg shadow-blue-500/20 transform group-hover:scale-105 transition-transform duration-300">KE</div>
+                </div>
+                <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-base md:text-lg text-slate-900 dark:text-white tracking-tight leading-none truncate">Konark HR</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-1.5 mt-0.5 md:mt-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-widest group-hover:text-ios-blue transition-colors truncate">
+                            {getRoleLabel(user.role)}
+                        </span>
                     </div>
                 </div>
             </div>
 
-            {/* Actions */}
+            {/* Right: Actions & Menu */}
             <div className="flex items-center gap-1 md:gap-3">
                 <button 
                     onClick={toggleTheme}
@@ -103,7 +93,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     )}
                 </div>
 
-                <div className="h-6 w-px bg-slate-200 dark:bg-white/10 hidden sm:block mx-1"></div>
+                <div className="h-6 w-px bg-slate-200 dark:bg-white/10 hidden md:block mx-1"></div>
 
                 <button 
                     onClick={onLogout}
@@ -112,6 +102,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                     <LogOut className="w-5 h-5" />
                     <span className="text-sm font-bold">Logout</span>
+                </button>
+
+                {/* Mobile Hamburger Menu (Right Side) */}
+                <button 
+                    onClick={onMenuClick}
+                    className="md:hidden p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors"
+                >
+                    <Menu className="w-6 h-6" />
                 </button>
             </div>
         </div>

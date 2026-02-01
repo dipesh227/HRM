@@ -173,7 +173,7 @@ class DBService {
           if (emp.status !== EmployeeStatus.APPROVED) throw new Error(`Account Status: ${emp.status}`);
 
           let sysRole = UserRole.EMPLOYEE;
-          if (['Supervisor', 'Safety Officer'].includes(emp.role)) sysRole = UserRole.SITE_INCHARGE;
+          if (['Supervisor', 'Safety Officer', 'Site Manager'].includes(emp.role)) sysRole = UserRole.SITE_INCHARGE;
 
           await this.logAudit(emp.uan, 'LOGIN_SUCCESS', 'Auth', `Staff Login (Mock): ${sysRole}`);
           return {
@@ -196,7 +196,7 @@ class DBService {
       if (emp.status !== EmployeeStatus.APPROVED) throw new Error(`Login Failed: Status is ${emp.status}`);
 
       let sysRole = UserRole.EMPLOYEE;
-      if (['Supervisor', 'Safety Officer'].includes(emp.role)) sysRole = UserRole.SITE_INCHARGE;
+      if (['Supervisor', 'Safety Officer', 'Site Manager'].includes(emp.role)) sysRole = UserRole.SITE_INCHARGE;
 
       const user: User = {
           id: emp.uan,
@@ -302,28 +302,53 @@ class DBService {
   }
 
   async uploadSiteLogo(file: File): Promise<string> {
-      if (this.mockMode) return URL.createObjectURL(file);
-      
-      const fileExt = file.name.split('.').pop();
-      const fileName = `logos/${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+      // Base64 Encoding with Client-Side Compression
+      // Eliminates need for storage buckets and reduces payload size
+      return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = (event) => {
+              const img = new Image();
+              img.src = event.target?.result as string;
+              img.onload = () => {
+                  const canvas = document.createElement('canvas');
+                  // Resize to reasonable logo dimensions (max 400px)
+                  const MAX_SIZE = 400;
+                  let width = img.width;
+                  let height = img.height;
 
-      const { data, error } = await this.client.storage
-          .from('app-assets')
-          .upload(fileName, file, {
-              cacheControl: '3600',
-              upsert: false
-          });
+                  if (width > height) {
+                      if (width > MAX_SIZE) {
+                          height *= MAX_SIZE / width;
+                          width = MAX_SIZE;
+                      }
+                  } else {
+                      if (height > MAX_SIZE) {
+                          width *= MAX_SIZE / height;
+                          height = MAX_SIZE;
+                      }
+                  }
 
-      if (error) {
-          console.error("Upload Error:", error);
-          throw new Error("Logo Upload Failed: " + error.message);
-      }
-
-      const { data: urlData } = this.client.storage
-          .from('app-assets')
-          .getPublicUrl(fileName);
-          
-      return urlData.publicUrl;
+                  canvas.width = width;
+                  canvas.height = height;
+                  
+                  const ctx = canvas.getContext('2d');
+                  if (!ctx) {
+                      // Fallback if canvas context fails
+                      resolve(event.target?.result as string);
+                      return;
+                  }
+                  
+                  ctx.drawImage(img, 0, 0, width, height);
+                  
+                  // Compress to JPEG at 0.7 quality to save space
+                  const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                  resolve(compressedBase64);
+              };
+              img.onerror = (e) => reject(new Error("Image processing failed"));
+          };
+          reader.onerror = (e) => reject(new Error("File reading failed"));
+      });
   }
 
   async createSite(site: Partial<Site>): Promise<void> {
@@ -397,6 +422,14 @@ class DBService {
   }
 
   // --- EMPLOYEES ---
+  
+  // NEW: Fetch ALL employees for HR Directory
+  async getAllEmployees(): Promise<Employee[]> {
+    if (this.mockMode) return [...MOCK_DB.employees];
+    const { data, error } = await this.client.from('employees').select('*').order('joined_date', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(this.mapEmployee);
+  }
 
   async getPendingEmployees(): Promise<Employee[]> {
     if (this.mockMode) return MOCK_DB.employees.filter(e => e.status === EmployeeStatus.PENDING);
@@ -418,6 +451,55 @@ class DBService {
   }
 
   // --- SALARY (Module 5) ---
+
+  // NEW: Single Record Upsert
+  async upsertSingleSalary(record: SalaryRecord, actorId: string): Promise<void> {
+      const dbRecord = {
+          employee_uan: record.employeeUan,
+          site_id: record.siteId,
+          month: record.month,
+          year: record.year,
+          basic: record.basic,
+          hra: record.hra,
+          allowances: record.allowances,
+          pf_deduction: record.pfDeduction,
+          tax_deduction: record.taxDeduction,
+          is_locked: true
+      };
+
+      if (this.mockMode) {
+          const net = record.basic + record.hra + record.allowances - record.pfDeduction - record.taxDeduction;
+          const idx = MOCK_DB.salary_records.findIndex(x => 
+              x.employeeUan === record.employeeUan && 
+              x.month === record.month && 
+              x.year === record.year && 
+              x.siteId === record.siteId
+          );
+          if (idx >= 0) {
+              MOCK_DB.salary_records[idx] = { ...record, id: MOCK_DB.salary_records[idx].id, netSalary: net };
+          } else {
+              MOCK_DB.salary_records.push({ ...record, id: `sal-${Date.now()}`, netSalary: net });
+          }
+          return;
+      }
+
+      const { error } = await this.client.from('salary_records')
+          .upsert(dbRecord, { onConflict: 'employee_uan, month, year, site_id' });
+
+      if (error) throw error;
+      await this.logAudit(actorId, 'SALARY_UPSERT', record.employeeUan, `Updated Salary for ${record.month}/${record.year}`);
+  }
+
+  // NEW: Delete Salary Record
+  async deleteSalaryRecord(recordId: string, actorId: string): Promise<void> {
+      if (this.mockMode) {
+          MOCK_DB.salary_records = MOCK_DB.salary_records.filter(r => r.id !== recordId);
+          return;
+      }
+      const { error } = await this.client.from('salary_records').delete().eq('id', recordId);
+      if (error) throw error;
+      await this.logAudit(actorId, 'SALARY_DELETE', recordId, 'Removed salary record');
+  }
 
   async uploadSalaryData(records: SalaryRecord[], actorId: string): Promise<{processed: number, skipped: number}> {
     if (this.mockMode) {
@@ -496,15 +578,16 @@ class DBService {
       };
   }
 
-  async getEmployeeSalaryHistory(uan: string): Promise<{month: number, year: number}[]> {
+  // Updated to include ID
+  async getEmployeeSalaryHistory(uan: string): Promise<{id: string, month: number, year: number}[]> {
       if (this.mockMode) {
           return MOCK_DB.salary_records
             .filter(r => r.employeeUan === uan)
-            .map(r => ({ month: r.month, year: r.year }))
+            .map(r => ({ id: r.id, month: r.month, year: r.year }))
             .sort((a,b) => (b.year - a.year) || (b.month - a.month));
       }
       const { data } = await this.client.from('salary_records')
-        .select('month, year')
+        .select('id, month, year')
         .eq('employee_uan', uan)
         .order('year', { ascending: false })
         .order('month', { ascending: false });
