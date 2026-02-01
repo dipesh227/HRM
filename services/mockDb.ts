@@ -234,6 +234,23 @@ class DBService {
     return (data || []).map(this.mapSite);
   }
 
+  async uploadSiteLogo(file: File): Promise<string> {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `site-logos/${Math.random().toString(36).substring(2)}.${fileExt}`;
+      
+      const { error } = await this.client.storage
+          .from('app-assets')
+          .upload(fileName, file);
+
+      if (error) throw new Error("Logo Upload Failed: " + error.message);
+
+      const { data } = this.client.storage
+          .from('app-assets')
+          .getPublicUrl(fileName);
+          
+      return data.publicUrl;
+  }
+
   async createSite(site: Partial<Site>): Promise<void> {
     const { error } = await this.client.from('sites').insert({
         company_id: site.companyId,

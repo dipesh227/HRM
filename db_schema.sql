@@ -1,5 +1,5 @@
 -- PostgreSQL Database Schema for Konark HR System
--- Production Ready Upgrade v3.1 (Fix Recursion & Clean RLS)
+-- Production Ready Upgrade v3.2 (Added Storage)
 
 -- 1. SETUP & ENUMS
 -- We use pgcrypto only if gen_random_uuid is not available, but usually it is in PG 13+
@@ -110,6 +110,15 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 -- ==========================================
+-- STORAGE SETUP
+-- ==========================================
+-- Note: 'storage' schema comes by default in Supabase.
+-- This inserts a bucket if it doesn't exist.
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('app-assets', 'app-assets', true) 
+ON CONFLICT (id) DO NOTHING;
+
+-- ==========================================
 -- SECURITY POLICIES (RLS)
 -- ==========================================
 
@@ -131,6 +140,12 @@ BEGIN
     LOOP 
         EXECUTE format('DROP POLICY IF EXISTS %I ON %I', r.policyname, r.tablename); 
     END LOOP; 
+    
+    -- Cleanup Storage Policies
+    FOR r IN SELECT policyname, tablename FROM pg_policies WHERE tablename = 'objects' AND schemaname = 'storage'
+    LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', r.policyname);
+    END LOOP;
 END $$;
 
 -- 1. COMPANIES & SITES
@@ -159,6 +174,10 @@ CREATE POLICY "HR Read Logs" ON audit_logs FOR SELECT USING (auth.role() = 'auth
 
 CREATE POLICY "Anyone Insert Notif" ON notifications FOR INSERT WITH CHECK (true);
 CREATE POLICY "Read Own Notif" ON notifications FOR SELECT USING (true);
+
+-- 6. STORAGE POLICIES
+CREATE POLICY "Public Access Assets" ON storage.objects FOR SELECT USING ( bucket_id = 'app-assets' );
+CREATE POLICY "Auth Upload Assets" ON storage.objects FOR INSERT WITH CHECK ( bucket_id = 'app-assets' AND auth.role() = 'authenticated' );
 
 
 -- SEED DATA

@@ -49,6 +49,8 @@ const HRDashboard: React.FC = () => {
   // Sites State
   const [showAddSite, setShowAddSite] = useState(false);
   const [newSite, setNewSite] = useState<Partial<Site>>({ name: '', address: '', status: SiteStatus.ACTIVE });
+  const [siteLogo, setSiteLogo] = useState<File | null>(null);
+  const [isSiteSaving, setIsSiteSaving] = useState(false);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
       setFeedback({ type, message });
@@ -161,14 +163,24 @@ const HRDashboard: React.FC = () => {
   // --- SITES ---
   const handleSaveSite = async (e: React.FormEvent) => {
       e.preventDefault();
+      setIsSiteSaving(true);
       try {
+          let logoUrl = newSite.logoUrl;
+          if (siteLogo) {
+             logoUrl = await dbService.uploadSiteLogo(siteLogo);
+          }
+
           // Hardcoded Company ID for this version as per spec
-          await dbService.createSite({ ...newSite, companyId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' });
+          await dbService.createSite({ ...newSite, logoUrl, companyId: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' });
           showNotification('success', "Site created.");
           setShowAddSite(false);
+          setNewSite({ name: '', address: '', status: SiteStatus.ACTIVE }); // Reset form
+          setSiteLogo(null);
           await loadData();
       } catch (e: any) {
           showNotification('error', e.message);
+      } finally {
+          setIsSiteSaving(false);
       }
   };
 
@@ -271,11 +283,23 @@ const HRDashboard: React.FC = () => {
                  </div>
                  <div className="grid gap-4">
                      {sites.length === 0 ? <p className="text-slate-500 p-4">No sites found.</p> : sites.map(s => (
-                         <div key={s.id} className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between">
-                             <div>
-                                 <h4 className="font-bold text-slate-800">{s.name}</h4>
-                                 <p className="text-sm text-slate-500">{s.address}</p>
-                                 <span className="text-xs bg-slate-100 px-2 py-1 rounded mt-1 inline-block">{s.status}</span>
+                         <div key={s.id} className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center">
+                             <div className="flex items-center gap-4">
+                                 {s.logoUrl ? (
+                                     <img src={s.logoUrl} alt={s.name} className="w-12 h-12 rounded-lg object-contain border border-slate-100 bg-slate-50" />
+                                 ) : (
+                                     <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
+                                         <Building2 className="w-6 h-6" />
+                                     </div>
+                                 )}
+                                 <div>
+                                     <h4 className="font-bold text-slate-800">{s.name}</h4>
+                                     <p className="text-sm text-slate-500">{s.address}</p>
+                                     <div className="flex gap-2 mt-1">
+                                        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600">{s.city || 'Unknown City'}</span>
+                                        <span className={`text-xs px-2 py-0.5 rounded ${s.status === SiteStatus.ACTIVE ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{s.status}</span>
+                                     </div>
+                                 </div>
                              </div>
                          </div>
                      ))}
@@ -286,16 +310,30 @@ const HRDashboard: React.FC = () => {
 
       {/* ADD SITE MODAL */}
       {showAddSite && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-              <div className="bg-white rounded-xl p-6 w-full max-w-md">
-                  <h3 className="font-bold mb-4">Add New Site</h3>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+              <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl animate-fade-in-up">
+                  <div className="flex justify-between items-center mb-4">
+                     <h3 className="font-bold text-lg">Add New Site</h3>
+                     <button onClick={() => setShowAddSite(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+                  </div>
                   <form onSubmit={handleSaveSite} className="space-y-3">
-                      <input required placeholder="Site Name" className="w-full border p-2 rounded" value={newSite.name} onChange={e => setNewSite({...newSite, name: e.target.value})} />
-                      <input required placeholder="Address" className="w-full border p-2 rounded" value={newSite.address} onChange={e => setNewSite({...newSite, address: e.target.value})} />
-                      <input placeholder="City" className="w-full border p-2 rounded" value={newSite.city} onChange={e => setNewSite({...newSite, city: e.target.value})} />
-                      <div className="flex gap-2">
-                          <button type="button" onClick={() => setShowAddSite(false)} className="flex-1 border p-2 rounded">Cancel</button>
-                          <button type="submit" className="flex-1 bg-slate-800 text-white p-2 rounded">Create</button>
+                      <input required placeholder="Site Name" className="w-full border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" value={newSite.name} onChange={e => setNewSite({...newSite, name: e.target.value})} />
+                      <input required placeholder="Address" className="w-full border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" value={newSite.address} onChange={e => setNewSite({...newSite, address: e.target.value})} />
+                      <input placeholder="City" className="w-full border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" value={newSite.city} onChange={e => setNewSite({...newSite, city: e.target.value})} />
+                      
+                      <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
+                          <label className="block text-xs font-bold text-slate-500 mb-2 uppercase flex items-center gap-1">
+                              <ImageIcon className="w-3 h-3" /> Site Logo (Optional)
+                          </label>
+                          <input type="file" accept="image/*" onChange={e => setSiteLogo(e.target.files?.[0] || null)} className="text-sm w-full text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white file:text-blue-700 hover:file:bg-blue-50 border border-slate-200 rounded-lg cursor-pointer" />
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                          <button type="button" onClick={() => setShowAddSite(false)} className="flex-1 border border-slate-300 p-2.5 rounded-lg text-sm font-medium hover:bg-slate-50">Cancel</button>
+                          <button type="submit" disabled={isSiteSaving} className="flex-1 bg-slate-800 hover:bg-slate-900 text-white p-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+                              {isSiteSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                              Create Site
+                          </button>
                       </div>
                   </form>
               </div>
