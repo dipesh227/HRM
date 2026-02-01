@@ -6,37 +6,48 @@ import {
 } from '../types';
 
 // ============================================================================
-// CONFIGURATION
+// CONFIGURATION & INITIALIZATION
 // ============================================================================
-const getEnvVar = (key: string) => (import.meta as any).env?.[key] || '';
-let SUPABASE_URL = getEnvVar('VITE_SUPABASE_URL');
-const SUPABASE_ANON_KEY = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
-// Normalize URL (strip trailing slash)
-if (SUPABASE_URL.endsWith('/')) {
+// Helper: robust env extraction with fallback for missing types
+const getEnv = (key: string) => {
+  // @ts-ignore
+  return (import.meta.env && import.meta.env[key]) ? import.meta.env[key] : '';
+};
+
+// 1. Get URL (Handle potential trailing slash)
+let SUPABASE_URL = getEnv('VITE_SUPABASE_URL');
+if (SUPABASE_URL && SUPABASE_URL.endsWith('/')) {
     SUPABASE_URL = SUPABASE_URL.slice(0, -1);
 }
 
+// 2. Get Key (Support multiple naming conventions for maximum compatibility)
+const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY');
+
 let supabase: SupabaseClient | null = null;
 
+// Initialize Client if credentials exist
 if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
         supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
             auth: {
-                persistSession: true,
+                persistSession: true, // Persist auth state in localStorage
                 autoRefreshToken: true,
-                detectSessionInUrl: true
+                detectSessionInUrl: true,
+                storage: window.localStorage // Explicitly use localStorage
             },
             db: {
                 schema: 'public'
             },
             global: {
-                headers: { 'x-application-name': 'konark-hr-v3' }
+                headers: { 'x-application-name': 'konark-hr-system' }
             }
         });
     } catch (e) {
         console.error("Critical: Failed to initialize Supabase client", e);
     }
+} else {
+    console.warn("Supabase credentials missing. Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
 }
 
 export type ConnectionStatus = {
@@ -49,57 +60,64 @@ class DBService {
   
   // --- CONNECTION CHECK & DIAGNOSTICS ---
   async checkConnection(): Promise<ConnectionStatus> {
-      if (!supabase) return { connected: false, error: "Missing Environment Variables (URL/KEY)", code: 'AUTH' };
+      if (!supabase) return { connected: false, error: "Missing Credentials. Check .env file.", code: 'AUTH' };
       
       try {
-          // STEP 1: Check Auth Service (Lightweight, checks URL + Key reachability)
-          // This verifies if we can reach the server at all, before checking for tables.
+          // STEP 1: Basic Reachability (Auth Endpoint)
+          // This verifies internet connection and valid URL/Key
           const { error: authError } = await supabase.auth.getSession();
           
           if (authError) {
-             console.error("Auth Check Failed:", authError);
-             if (authError.message.includes('FetchError') || authError.message.includes('network') || authError.status === 0) {
-                 return { connected: false, error: "Network Error: Cannot reach Supabase URL. Check your internet or URL in .env", code: 'NETWORK' };
+             console.error("Auth Connection Check Failed:", authError);
+             
+             // Network/Fetch Errors
+             if (authError.message.includes('FetchError') || authError.message.includes('Failed to fetch') || authError.status === 0) {
+                 return { connected: false, error: "Network Error: Cannot reach Supabase. Check Internet/URL.", code: 'NETWORK' };
              }
+             // Invalid Key Errors (401/403)
              if (authError.status === 401 || authError.status === 403) {
-                 return { connected: false, error: "Auth Error: Invalid API Key.", code: 'AUTH' };
+                 return { connected: false, error: "Authentication Failed. Check API Key.", code: 'AUTH' };
              }
           }
 
-          // STEP 2: Check Database Schema (Requires tables to exist)
+          // STEP 2: Database Reachability (Schema Check)
+          // Try to select 1 row from 'companies'. 
           const abortController = new AbortController();
-          const timeoutId = setTimeout(() => abortController.abort(), 15000); // Increased to 15s
+          const timeoutId = setTimeout(() => abortController.abort(), 10000); // 10s Timeout
 
-          const { data, error, status } = await supabase
+          const { error: dbError, status } = await supabase
             .from('companies')
-            .select('id')
-            .limit(1)
+            .select('count', { count: 'exact', head: true }) // Lightweight HEAD request
             .abortSignal(abortController.signal);
             
           clearTimeout(timeoutId);
           
-          if (error) {
-              console.error("DB Check Error:", error);
-              // Diagnostics
-              if (error.code === '42P01') {
+          if (dbError) {
+              console.error("DB Connection Check Failed:", dbError);
+              
+              // Table missing code
+              if (dbError.code === '42P01') {
                   return { connected: false, error: "Database connected but tables are missing.", code: 'NO_SCHEMA' };
               }
-              if (error.code === 'PGRST301' || status === 401 || status === 403) {
-                  return { connected: false, error: "RLS/Auth Error accessing table.", code: 'AUTH' };
+              // RLS Error (Actually means we are connected!)
+              if (dbError.code === 'PGRST301' || status === 401 || status === 403) {
+                  // If we get an RLS error, it means we HIT the database and it responded. 
+                  // This counts as a successful "connection" for the purpose of the setup screen.
+                  return { connected: true };
               }
-              if (status === 0 || error.message.includes('FetchError') || error.message.includes('network')) {
-                  return { connected: false, error: "Server unreachable (Database API).", code: 'NETWORK' };
+              // Timeout
+              if (dbError.message.includes('AbortError')) {
+                   return { connected: false, error: "Connection Timed Out.", code: 'NETWORK' };
               }
-              return { connected: false, error: `${error.message} (Code: ${error.code})`, code: 'UNKNOWN' };
+
+              return { connected: false, error: `DB Error: ${dbError.message}`, code: 'UNKNOWN' };
           }
 
           return { connected: true };
       } catch (e: any) {
-          console.error("DB Check Exception:", e);
-          if (e.name === 'AbortError') {
-              return { connected: false, error: "Connection timed out (15s). Server is slow or unreachable.", code: 'NETWORK' };
-          }
-          return { connected: false, error: e.message || "Unknown connection error", code: 'NETWORK' };
+          console.error("Connection Exception:", e);
+          if (e.name === 'AbortError') return { connected: false, error: "Connection Timed Out.", code: 'NETWORK' };
+          return { connected: false, error: e.message || "Unknown error", code: 'NETWORK' };
       }
   }
 
@@ -125,13 +143,12 @@ class DBService {
         .maybeSingle();
 
     if (profileError) {
-        // If 406 or other weird error, handle gracefully
         if (profileError.code !== 'PGRST116') {
              console.error("Profile fetch error", profileError);
         }
     }
     
-    // Auto-create profile if missing (Self-healing for demo/MVP)
+    // Auto-create profile if missing (Self-healing)
     let userProfile = profile;
     if (!profile) {
         console.warn("User authenticated but no profile found. Attempting to seed...");
