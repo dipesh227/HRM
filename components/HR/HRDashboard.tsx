@@ -14,15 +14,15 @@ const ConfirmationModal: React.FC<{ isOpen: boolean; title: string; message: str
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in-up border border-slate-200">
+            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in-up border border-slate-200 dark:border-slate-800">
                 <div className="p-6 text-center">
-                    <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 ${confirmStyle === 'danger' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                    <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-4 ${confirmStyle === 'danger' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'}`}>
                         {confirmStyle === 'danger' ? <AlertTriangle className="w-6 h-6" /> : <ShieldAlert className="w-6 h-6" />}
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
-                    <p className="text-sm text-slate-500 mb-6">{message}</p>
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">{title}</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{message}</p>
                     <div className="flex gap-3 justify-center">
-                        <button onClick={onCancel} disabled={isLoading} className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium text-sm transition-colors">Cancel</button>
+                        <button onClick={onCancel} disabled={isLoading} className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium text-sm transition-colors">Cancel</button>
                         <button onClick={onConfirm} disabled={isLoading} className={`px-4 py-2 rounded-lg text-white font-medium text-sm transition-colors flex items-center gap-2 ${confirmStyle === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}>{isLoading && <Loader2 className="w-3 h-3 animate-spin" />}{confirmText}</button>
                     </div>
                 </div>
@@ -186,19 +186,19 @@ const HRDashboard: React.FC = () => {
 
   // Nav Button Component
   const NavBtn = ({ id, label, icon: Icon, badge }: any) => (
-    <button onClick={() => setActiveTab(id)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === id ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}>
+    <button onClick={() => setActiveTab(id)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === id ? 'bg-slate-800 text-white dark:bg-blue-600' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
       <Icon className="w-4 h-4" /> <span>{label}</span>
       {badge > 0 && <span className="bg-red-500 text-white text-[10px] px-1.5 rounded-full">{badge}</span>}
     </button>
   );
 
   return (
-    <div className="flex flex-col h-full bg-slate-50">
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 p-4 sticky top-0 z-20 shadow-sm flex justify-between items-center">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 sticky top-0 z-20 shadow-sm flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-bold text-slate-800">HR Console</h1>
-            <p className="text-xs text-slate-500">Secure Admin Access</p>
+            <h1 className="text-xl font-bold text-slate-800 dark:text-white">HR Console</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Secure Admin Access</p>
           </div>
           <div className="flex gap-2">
              <NavBtn id="overview" label="Overview" icon={Activity} />
@@ -211,7 +211,7 @@ const HRDashboard: React.FC = () => {
 
       {/* Notifications */}
       {feedback && (
-          <div className={`fixed top-20 right-4 z-50 px-6 py-4 rounded-lg shadow-xl border-l-4 flex items-center gap-3 ${feedback.type === 'success' ? 'bg-white border-green-500 text-slate-800' : 'bg-white border-red-500 text-slate-800'}`}>
+          <div className={`fixed top-20 right-4 z-50 px-6 py-4 rounded-lg shadow-xl border-l-4 flex items-center gap-3 ${feedback.type === 'success' ? 'bg-white dark:bg-slate-800 border-green-500 text-slate-800 dark:text-white' : 'bg-white dark:bg-slate-800 border-red-500 text-slate-800 dark:text-white'}`}>
               <span className="font-medium text-sm">{feedback.message}</span>
           </div>
       )}
@@ -220,17 +220,17 @@ const HRDashboard: React.FC = () => {
         {/* OVERVIEW */}
         {activeTab === 'overview' && (
             <div className="grid grid-cols-4 gap-4">
-                <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
                     <h3 className="text-xs uppercase text-slate-400 font-bold">Total Staff</h3>
-                    <p className="text-2xl font-bold text-slate-800">{stats.totalEmployees || 0}</p>
+                    <p className="text-2xl font-bold text-slate-800 dark:text-white">{stats.totalEmployees || 0}</p>
                 </div>
-                <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
                     <h3 className="text-xs uppercase text-slate-400 font-bold">Pending</h3>
-                    <p className="text-2xl font-bold text-slate-800">{stats.pendingApprovals || 0}</p>
+                    <p className="text-2xl font-bold text-slate-800 dark:text-white">{stats.pendingApprovals || 0}</p>
                 </div>
-                <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
                     <h3 className="text-xs uppercase text-slate-400 font-bold">Active Sites</h3>
-                    <p className="text-2xl font-bold text-slate-800">{stats.activeSites || 0}</p>
+                    <p className="text-2xl font-bold text-slate-800 dark:text-white">{stats.activeSites || 0}</p>
                 </div>
             </div>
         )}
@@ -238,16 +238,16 @@ const HRDashboard: React.FC = () => {
         {/* APPROVALS */}
         {activeTab === 'approvals' && (
             <div className="space-y-4">
-                {pendingEmployees.length === 0 ? <p className="text-center text-slate-500">No pending approvals.</p> : pendingEmployees.map(emp => (
-                    <div key={emp.uan} className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center">
+                {pendingEmployees.length === 0 ? <p className="text-center text-slate-500 dark:text-slate-400">No pending approvals.</p> : pendingEmployees.map(emp => (
+                    <div key={emp.uan} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between items-center">
                         <div>
-                            <h4 className="font-bold text-slate-800">{emp.name}</h4>
-                            <p className="text-sm text-slate-500 font-mono">UAN: {emp.uan}</p>
-                            <p className="text-xs text-slate-400">Role: {emp.role}</p>
+                            <h4 className="font-bold text-slate-800 dark:text-white">{emp.name}</h4>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 font-mono">UAN: {emp.uan}</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500">Role: {emp.role}</p>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => handleApproval(emp.uan, false)} className="px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50">Reject</button>
-                            <button onClick={() => handleApproval(emp.uan, true)} className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900">Approve</button>
+                            <button onClick={() => handleApproval(emp.uan, false)} className="px-4 py-2 text-red-600 border border-red-200 dark:border-red-900/50 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">Reject</button>
+                            <button onClick={() => handleApproval(emp.uan, true)} className="px-4 py-2 bg-slate-800 dark:bg-blue-600 text-white rounded-lg hover:bg-slate-900 dark:hover:bg-blue-700">Approve</button>
                         </div>
                     </div>
                 ))}
@@ -256,21 +256,21 @@ const HRDashboard: React.FC = () => {
 
         {/* PAYROLL */}
         {activeTab === 'salary' && (
-            <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center max-w-2xl mx-auto">
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 text-center max-w-2xl mx-auto">
                 <FileSpreadsheet className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-                <h2 className="text-xl font-bold text-slate-800">Bulk Salary Processing</h2>
-                <p className="text-slate-500 mb-6">Upload Excel with 12-digit UANs.</p>
+                <h2 className="text-xl font-bold text-slate-800 dark:text-white">Bulk Salary Processing</h2>
+                <p className="text-slate-500 dark:text-slate-400 mb-6">Upload Excel with 12-digit UANs.</p>
                 
                 <div className="flex flex-col gap-4 max-w-sm mx-auto">
-                    <button onClick={downloadTemplate} className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50">
+                    <button onClick={downloadTemplate} className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300">
                         <Download className="w-4 h-4" /> Download Template
                     </button>
-                    <input type="file" accept=".xlsx" onChange={e => setSalaryFile(e.target.files?.[0] || null)} className="border p-2 rounded block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                    <input type="file" accept=".xlsx" onChange={e => setSalaryFile(e.target.files?.[0] || null)} className="border dark:border-slate-700 p-2 rounded block w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-blue-900/30 file:text-blue-700 dark:file:text-blue-400 hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50" />
                     <button onClick={handleSalaryUpload} disabled={isUploading || !salaryFile} className="w-full py-2.5 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50">
                         {isUploading ? 'Processing...' : 'Upload & Process'}
                     </button>
                 </div>
-                {uploadStatus && <div className="mt-4 text-sm font-medium text-slate-600 bg-slate-100 p-2 rounded">{uploadStatus}</div>}
+                {uploadStatus && <div className="mt-4 text-sm font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 p-2 rounded">{uploadStatus}</div>}
             </div>
         )}
 
@@ -278,26 +278,26 @@ const HRDashboard: React.FC = () => {
         {activeTab === 'sites' && (
             <div>
                  <div className="flex justify-between items-center mb-4">
-                     <h3 className="font-bold text-slate-800">Site Management</h3>
-                     <button onClick={() => setShowAddSite(true)} className="bg-slate-800 text-white px-4 py-2 rounded text-sm font-medium">Add Site</button>
+                     <h3 className="font-bold text-slate-800 dark:text-white">Site Management</h3>
+                     <button onClick={() => setShowAddSite(true)} className="bg-slate-800 dark:bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium">Add Site</button>
                  </div>
                  <div className="grid gap-4">
-                     {sites.length === 0 ? <p className="text-slate-500 p-4">No sites found.</p> : sites.map(s => (
-                         <div key={s.id} className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center">
+                     {sites.length === 0 ? <p className="text-slate-500 dark:text-slate-400 p-4">No sites found.</p> : sites.map(s => (
+                         <div key={s.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-between items-center">
                              <div className="flex items-center gap-4">
                                  {s.logoUrl ? (
-                                     <img src={s.logoUrl} alt={s.name} className="w-12 h-12 rounded-lg object-contain border border-slate-100 bg-slate-50" />
+                                     <img src={s.logoUrl} alt={s.name} className="w-12 h-12 rounded-lg object-contain border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" />
                                  ) : (
-                                     <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
+                                     <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500">
                                          <Building2 className="w-6 h-6" />
                                      </div>
                                  )}
                                  <div>
-                                     <h4 className="font-bold text-slate-800">{s.name}</h4>
-                                     <p className="text-sm text-slate-500">{s.address}</p>
+                                     <h4 className="font-bold text-slate-800 dark:text-white">{s.name}</h4>
+                                     <p className="text-sm text-slate-500 dark:text-slate-400">{s.address}</p>
                                      <div className="flex gap-2 mt-1">
-                                        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600">{s.city || 'Unknown City'}</span>
-                                        <span className={`text-xs px-2 py-0.5 rounded ${s.status === SiteStatus.ACTIVE ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{s.status}</span>
+                                        <span className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-600 dark:text-slate-300">{s.city || 'Unknown City'}</span>
+                                        <span className={`text-xs px-2 py-0.5 rounded ${s.status === SiteStatus.ACTIVE ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400'}`}>{s.status}</span>
                                      </div>
                                  </div>
                              </div>
@@ -311,26 +311,26 @@ const HRDashboard: React.FC = () => {
       {/* ADD SITE MODAL */}
       {showAddSite && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-              <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl animate-fade-in-up">
+              <div className="bg-white dark:bg-slate-900 rounded-xl p-6 w-full max-w-md shadow-2xl animate-fade-in-up border border-slate-200 dark:border-slate-800">
                   <div className="flex justify-between items-center mb-4">
-                     <h3 className="font-bold text-lg">Add New Site</h3>
-                     <button onClick={() => setShowAddSite(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+                     <h3 className="font-bold text-lg text-slate-800 dark:text-white">Add New Site</h3>
+                     <button onClick={() => setShowAddSite(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X className="w-5 h-5"/></button>
                   </div>
                   <form onSubmit={handleSaveSite} className="space-y-3">
-                      <input required placeholder="Site Name" className="w-full border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" value={newSite.name} onChange={e => setNewSite({...newSite, name: e.target.value})} />
-                      <input required placeholder="Address" className="w-full border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" value={newSite.address} onChange={e => setNewSite({...newSite, address: e.target.value})} />
-                      <input placeholder="City" className="w-full border border-slate-300 p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" value={newSite.city} onChange={e => setNewSite({...newSite, city: e.target.value})} />
+                      <input required placeholder="Site Name" className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" value={newSite.name} onChange={e => setNewSite({...newSite, name: e.target.value})} />
+                      <input required placeholder="Address" className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" value={newSite.address} onChange={e => setNewSite({...newSite, address: e.target.value})} />
+                      <input placeholder="City" className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white p-2.5 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" value={newSite.city} onChange={e => setNewSite({...newSite, city: e.target.value})} />
                       
-                      <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
-                          <label className="block text-xs font-bold text-slate-500 mb-2 uppercase flex items-center gap-1">
+                      <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-3 bg-slate-50 dark:bg-slate-800">
+                          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase flex items-center gap-1">
                               <ImageIcon className="w-3 h-3" /> Site Logo (Optional)
                           </label>
-                          <input type="file" accept="image/*" onChange={e => setSiteLogo(e.target.files?.[0] || null)} className="text-sm w-full text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white file:text-blue-700 hover:file:bg-blue-50 border border-slate-200 rounded-lg cursor-pointer" />
+                          <input type="file" accept="image/*" onChange={e => setSiteLogo(e.target.files?.[0] || null)} className="text-sm w-full text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white dark:file:bg-slate-700 file:text-blue-700 dark:file:text-blue-400 hover:file:bg-blue-50 dark:hover:file:bg-slate-600 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer" />
                       </div>
 
                       <div className="flex gap-3 pt-2">
-                          <button type="button" onClick={() => setShowAddSite(false)} className="flex-1 border border-slate-300 p-2.5 rounded-lg text-sm font-medium hover:bg-slate-50">Cancel</button>
-                          <button type="submit" disabled={isSiteSaving} className="flex-1 bg-slate-800 hover:bg-slate-900 text-white p-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+                          <button type="button" onClick={() => setShowAddSite(false)} className="flex-1 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 p-2.5 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800">Cancel</button>
+                          <button type="submit" disabled={isSiteSaving} className="flex-1 bg-slate-800 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700 text-white p-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
                               {isSiteSaving && <Loader2 className="w-4 h-4 animate-spin" />}
                               Create Site
                           </button>

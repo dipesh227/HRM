@@ -86,45 +86,45 @@ const SiteDashboard: React.FC<Props> = ({ user }) => {
   const complianceScore = Math.round((employees.filter(e => e.status === EmployeeStatus.APPROVED).length / (employees.length || 1)) * 100);
 
   if (loading && !siteDetails) {
-      return <div className="h-full flex items-center justify-center text-slate-500 gap-2"><Loader2 className="animate-spin" /> Loading Site Data...</div>
+      return <div className="h-full flex items-center justify-center text-slate-500 dark:text-slate-400 gap-2"><Loader2 className="animate-spin" /> Loading Site Data...</div>
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 relative">
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 relative transition-colors duration-200">
       
       {/* Toast Notification Banner */}
       {feedback && (
-          <div className={`fixed top-20 right-4 z-50 px-6 py-4 rounded-lg shadow-xl border-l-4 animate-fade-in-up flex items-center gap-3 ${feedback.type === 'success' ? 'bg-white border-green-500 text-slate-800' : 'bg-white border-red-500 text-slate-800'}`}>
+          <div className={`fixed top-20 right-4 z-50 px-6 py-4 rounded-lg shadow-xl border-l-4 animate-fade-in-up flex items-center gap-3 ${feedback.type === 'success' ? 'bg-white dark:bg-slate-800 border-green-500 text-slate-800 dark:text-white' : 'bg-white dark:bg-slate-800 border-red-500 text-slate-800 dark:text-white'}`}>
               {feedback.type === 'success' ? <CheckCircle className="text-green-500 w-5 h-5" /> : <AlertTriangle className="text-red-500 w-5 h-5" />}
               <span className="font-medium text-sm">{feedback.message}</span>
-              <button onClick={() => setFeedback(null)} className="ml-2 text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
+              <button onClick={() => setFeedback(null)} className="ml-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X className="w-4 h-4" /></button>
           </div>
       )}
 
       {/* Site Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 md:px-8 md:py-6 sticky top-0 z-10">
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 md:px-8 md:py-6 sticky top-0 z-10">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-4">
              {siteDetails?.logoUrl && (
-                 <img src={siteDetails.logoUrl} alt="Logo" className="w-12 h-12 rounded-lg border border-slate-100 object-cover" />
+                 <img src={siteDetails.logoUrl} alt="Logo" className="w-12 h-12 rounded-lg border border-slate-100 dark:border-slate-800 object-cover" />
              )}
              <div>
                 <div className="flex items-center gap-3">
-                    <h2 className="text-xl font-bold text-slate-800">{siteDetails?.name || 'Unknown Site'}</h2>
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold border ${complianceScore === 100 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-white">{siteDetails?.name || 'Unknown Site'}</h2>
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold border ${complianceScore === 100 ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' : 'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800'}`}>
                     {complianceScore}% Compliance
                     </span>
                 </div>
-                <p className="text-slate-500 text-sm flex items-center gap-2 mt-1">
+                <p className="text-slate-500 dark:text-slate-400 text-sm flex items-center gap-2 mt-1">
                 {siteDetails?.address}
-                {isSiteClosed && <span className="text-red-600 bg-red-50 px-2 py-0.5 rounded text-xs font-bold border border-red-100">SITE CLOSED</span>}
+                {isSiteClosed && <span className="text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded text-xs font-bold border border-red-100 dark:border-red-800">SITE CLOSED</span>}
                 </p>
              </div>
           </div>
           {!isSiteClosed && (
             <button 
               onClick={() => setShowAddForm(true)}
-              className="w-full md:w-auto bg-slate-800 hover:bg-slate-900 text-white px-4 py-2.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-colors shadow-md"
+              className="w-full md:w-auto bg-slate-800 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-colors shadow-md"
             >
               <UserPlus className="w-4 h-4" /> Add Employee
             </button>
@@ -136,44 +136,44 @@ const SiteDashboard: React.FC<Props> = ({ user }) => {
         
         {/* Stats Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-8">
-           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col items-start gap-2">
-              <div className="p-2 bg-blue-50 rounded-full text-blue-600"><Users className="w-5 h-5" /></div>
+           <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-start gap-2">
+              <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-full text-blue-600 dark:text-blue-400"><Users className="w-5 h-5" /></div>
               <div>
-                <div className="text-2xl font-bold text-slate-800">{employees.length}</div>
-                <div className="text-[10px] text-slate-500 uppercase font-semibold">Total Staff</div>
+                <div className="text-2xl font-bold text-slate-800 dark:text-white">{employees.length}</div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Total Staff</div>
               </div>
            </div>
-           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col items-start gap-2">
-              <div className="p-2 bg-orange-50 rounded-full text-orange-600"><AlertTriangle className="w-5 h-5" /></div>
+           <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-start gap-2">
+              <div className="p-2 bg-orange-50 dark:bg-orange-900/30 rounded-full text-orange-600 dark:text-orange-400"><AlertTriangle className="w-5 h-5" /></div>
               <div>
-                <div className="text-2xl font-bold text-slate-800">{employees.filter(e => e.status === EmployeeStatus.PENDING).length}</div>
-                <div className="text-[10px] text-slate-500 uppercase font-semibold">Pending</div>
+                <div className="text-2xl font-bold text-slate-800 dark:text-white">{employees.filter(e => e.status === EmployeeStatus.PENDING).length}</div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Pending</div>
               </div>
            </div>
-           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col items-start gap-2">
-              <div className="p-2 bg-green-50 rounded-full text-green-600"><ShieldCheck className="w-5 h-5" /></div>
+           <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-start gap-2">
+              <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-full text-green-600 dark:text-green-400"><ShieldCheck className="w-5 h-5" /></div>
               <div>
-                <div className="text-2xl font-bold text-slate-800">{employees.filter(e => e.status === EmployeeStatus.APPROVED).length}</div>
-                <div className="text-[10px] text-slate-500 uppercase font-semibold">Active</div>
+                <div className="text-2xl font-bold text-slate-800 dark:text-white">{employees.filter(e => e.status === EmployeeStatus.APPROVED).length}</div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Active</div>
               </div>
            </div>
-           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex flex-col items-start gap-2">
-              <div className="p-2 bg-purple-50 rounded-full text-purple-600"><ClipboardCheck className="w-5 h-5" /></div>
+           <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-start gap-2">
+              <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-full text-purple-600 dark:text-purple-400"><ClipboardCheck className="w-5 h-5" /></div>
               <div>
-                <div className="text-2xl font-bold text-slate-800">100%</div>
-                <div className="text-[10px] text-slate-500 uppercase font-semibold">Docs</div>
+                <div className="text-2xl font-bold text-slate-800 dark:text-white">100%</div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Docs</div>
               </div>
            </div>
         </div>
 
         {/* Employee List */}
-        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-             <h3 className="font-semibold text-slate-700">Employee Roster</h3>
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+             <h3 className="font-semibold text-slate-700 dark:text-slate-200">Employee Roster</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left whitespace-nowrap">
-                <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-semibold">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-xs uppercase text-slate-500 dark:text-slate-400 font-semibold">
                 <tr>
                     <th className="px-6 py-4">Name / Role</th>
                     <th className="px-6 py-4">UAN</th>
@@ -182,25 +182,25 @@ const SiteDashboard: React.FC<Props> = ({ user }) => {
                     <th className="px-6 py-4">Documents</th>
                 </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {employees.map(emp => (
-                    <tr key={emp.uan} className="hover:bg-slate-50 transition-colors">
+                    <tr key={emp.uan} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                     <td className="px-6 py-4">
-                        <div className="font-medium text-slate-800">{emp.name}</div>
-                        <div className="text-xs text-slate-500">{emp.role}</div>
+                        <div className="font-medium text-slate-800 dark:text-white">{emp.name}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{emp.role}</div>
                     </td>
-                    <td className="px-6 py-4 font-mono text-sm text-slate-600">{emp.uan}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{emp.joinedDate}</td>
+                    <td className="px-6 py-4 font-mono text-sm text-slate-600 dark:text-slate-300">{emp.uan}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{emp.joinedDate}</td>
                     <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${
-                        emp.status === EmployeeStatus.APPROVED ? 'bg-green-100 text-green-800' :
-                        emp.status === EmployeeStatus.PENDING ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800'
+                        emp.status === EmployeeStatus.APPROVED ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                        emp.status === EmployeeStatus.PENDING ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                         }`}>
                         {emp.status}
                         </span>
                     </td>
                     <td className="px-6 py-4">
-                        <button className="text-blue-600 hover:text-blue-800 text-xs font-medium flex items-center gap-1">
+                        <button className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-xs font-medium flex items-center gap-1">
                         <FileText className="w-3 h-3" /> View Docs
                         </button>
                     </td>
@@ -208,7 +208,7 @@ const SiteDashboard: React.FC<Props> = ({ user }) => {
                 ))}
                 {employees.length === 0 && (
                     <tr>
-                    <td colSpan={5} className="text-center py-8 text-slate-400 text-sm">No employees found for this site.</td>
+                    <td colSpan={5} className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm">No employees found for this site.</td>
                     </tr>
                 )}
                 </tbody>
@@ -220,39 +220,39 @@ const SiteDashboard: React.FC<Props> = ({ user }) => {
       {/* Add Employee Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in-up">
-            <div className="bg-slate-800 px-6 py-4 flex justify-between items-center">
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in-up border border-slate-200 dark:border-slate-800">
+            <div className="bg-slate-800 dark:bg-slate-950 px-6 py-4 flex justify-between items-center">
               <h3 className="text-white font-semibold">Add New Employee</h3>
               <button onClick={() => setShowAddForm(false)} className="text-slate-400 hover:text-white">&times;</button>
             </div>
             <form onSubmit={handleAddEmployee} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
                 <input 
                   required
                   type="text" 
                   value={newEmp.name}
                   onChange={e => setNewEmp({...newEmp, name: e.target.value})}
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">UAN (Unique ID)</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">UAN (Unique ID)</label>
                   <input 
                     required
                     type="text" 
                     value={newEmp.uan}
                     onChange={e => setNewEmp({...newEmp, uan: e.target.value})}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Role</label>
                   <select 
                     value={newEmp.role}
                     onChange={e => setNewEmp({...newEmp, role: e.target.value as EmployeeRole})}
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                    className="w-full px-3 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                   >
                     {Object.values(EmployeeRole).map(r => (
                       <option key={r} value={r}>{r}</option>
@@ -261,16 +261,16 @@ const SiteDashboard: React.FC<Props> = ({ user }) => {
                 </div>
               </div>
               
-              <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
                 <button 
                   type="button" 
                   onClick={() => setShowAddForm(false)}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-50 rounded-lg font-medium text-sm"
+                  className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg font-medium text-sm"
                 >Cancel</button>
                 <button 
                   type="submit" 
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-slate-800 text-white rounded-lg font-medium text-sm hover:bg-slate-900 shadow-lg shadow-slate-200 flex items-center justify-center gap-2"
+                  className="px-4 py-2 bg-slate-800 dark:bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-slate-900 dark:hover:bg-blue-700 shadow-lg shadow-slate-200 dark:shadow-none flex items-center justify-center gap-2"
                 >
                     {isSubmitting && <Loader2 className="w-3 h-3 animate-spin" />}
                     Submit for Approval

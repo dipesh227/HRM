@@ -6,17 +6,39 @@ import EmployeeView from './components/Employee/EmployeeView';
 import { DatabaseSetup } from './components/DatabaseSetup';
 import { User, UserRole, Notification } from './types';
 import { dbService } from './services/mockDb';
-import { LogOut, Bell, Loader2 } from 'lucide-react';
+import { LogOut, Bell, Loader2, Moon, Sun } from 'lucide-react';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   
+  // Theme State
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+        return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
+    }
+    return 'light';
+  });
+
   // Database Connection State
   const [dbStatus, setDbStatus] = useState<'CHECKING' | 'CONNECTED' | 'ERROR'>('CHECKING');
   const [dbError, setDbError] = useState('');
   const [dbErrorCode, setDbErrorCode] = useState<string | undefined>(undefined);
+
+  // Apply Theme Effect
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
 
   const checkDb = async () => {
       setDbStatus('CHECKING');
@@ -63,10 +85,10 @@ const App: React.FC = () => {
 
   if (dbStatus === 'CHECKING') {
       return (
-          <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-              <div className="bg-white p-8 rounded-xl shadow-lg flex flex-col items-center gap-4">
+          <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
+              <div className="bg-white dark:bg-slate-900 p-8 rounded-xl shadow-lg flex flex-col items-center gap-4">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                  <p className="text-slate-600 font-medium">Connecting to Database...</p>
+                  <p className="text-slate-600 dark:text-slate-300 font-medium">Connecting to Database...</p>
               </div>
           </div>
       );
@@ -79,15 +101,27 @@ const App: React.FC = () => {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   if (!user) {
-    return <Login onLogin={setUser} />;
+    return (
+        <div className="relative">
+             <div className="absolute top-4 right-4 z-50">
+                <button 
+                  onClick={toggleTheme} 
+                  className="p-2 bg-white dark:bg-slate-800 rounded-full shadow-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                >
+                  {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                </button>
+             </div>
+             <Login onLogin={setUser} />
+        </div>
+    );
   }
 
   // Common Layout Wrapper
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-100 font-sans text-slate-900">
+    <div className="flex flex-col h-screen w-full bg-slate-100 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-200">
       
       {/* Top Navigation Bar */}
-      <nav className="bg-slate-900 text-white px-4 md:px-6 py-3 shadow-lg flex justify-between items-center z-50 sticky top-0">
+      <nav className="bg-slate-900 dark:bg-slate-950 text-white px-4 md:px-6 py-3 shadow-lg flex justify-between items-center z-50 sticky top-0 border-b border-slate-800 dark:border-slate-800">
         <div className="flex items-center gap-3">
           <div className="bg-blue-600 h-10 w-10 rounded-lg flex items-center justify-center font-bold text-sm text-white shadow-blue-500/50 shadow-sm border border-blue-500">KE</div>
           <div className="flex flex-col">
@@ -103,6 +137,15 @@ const App: React.FC = () => {
         
         <div className="flex items-center gap-3">
           
+          {/* Theme Toggle */}
+          <button 
+            onClick={toggleTheme}
+            className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors text-slate-300"
+            title={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
+          >
+            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </button>
+
           {/* Notification Bell */}
           <div className="relative">
             <button 
@@ -116,21 +159,21 @@ const App: React.FC = () => {
             </button>
             
             {showNotifications && (
-                <div className="absolute right-0 top-12 w-80 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50">
-                    <div className="bg-slate-50 px-4 py-3 border-b border-slate-100 flex justify-between items-center">
-                        <h4 className="text-sm font-bold text-slate-700">Notifications</h4>
-                        <span className="text-xs bg-slate-200 text-slate-600 px-1.5 rounded">{notifications.length}</span>
+                <div className="absolute right-0 top-12 w-80 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
+                    <div className="bg-slate-50 dark:bg-slate-800 px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">Notifications</h4>
+                        <span className="text-xs bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 rounded">{notifications.length}</span>
                     </div>
                     <div className="max-h-64 overflow-y-auto">
                         {notifications.length === 0 ? (
-                            <div className="p-4 text-center text-xs text-slate-400">No new notifications</div>
+                            <div className="p-4 text-center text-xs text-slate-400 dark:text-slate-500">No new notifications</div>
                         ) : (
                             notifications.map(n => (
-                                <div key={n.id} className={`p-3 border-b border-slate-50 hover:bg-slate-50 cursor-pointer ${!n.isRead ? 'bg-blue-50/50' : ''}`}>
+                                <div key={n.id} className={`p-3 border-b border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer ${!n.isRead ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}>
                                     <div className="flex gap-2">
                                         <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${n.type === 'ALERT' ? 'bg-red-500' : n.type === 'SUCCESS' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
                                         <div>
-                                            <p className="text-sm text-slate-800 leading-tight">{n.message}</p>
+                                            <p className="text-sm text-slate-800 dark:text-slate-200 leading-tight">{n.message}</p>
                                             <p className="text-xs text-slate-400 mt-1">{new Date(n.timestamp).toLocaleTimeString()}</p>
                                         </div>
                                     </div>
@@ -156,7 +199,7 @@ const App: React.FC = () => {
       </nav>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto relative bg-slate-100">
+      <div className="flex-1 overflow-y-auto relative bg-slate-100 dark:bg-slate-950">
         {user.role === UserRole.HR && <HRDashboard />}
         {user.role === UserRole.SITE_INCHARGE && <SiteDashboard user={user} />}
         {user.role === UserRole.EMPLOYEE && <EmployeeView user={user} />}

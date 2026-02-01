@@ -48,10 +48,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors duration-200">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-800">
         {/* Header */}
-        <div className="bg-slate-900 p-8 text-white text-center">
+        <div className="bg-slate-900 dark:bg-slate-950 p-8 text-white text-center border-b border-slate-800">
           <div className="inline-flex h-12 w-12 bg-blue-600 rounded-lg items-center justify-center mb-4 shadow-lg shadow-blue-900/50 border border-blue-500">
              <span className="text-xl font-bold">KE</span>
           </div>
@@ -61,11 +61,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         
         <div className="p-6">
           {/* 3-Way Role Selector */}
-          <div className="grid grid-cols-3 gap-2 mb-6 p-1 bg-slate-100 rounded-lg">
+          <div className="grid grid-cols-3 gap-2 mb-6 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
             <button 
               type="button"
               onClick={() => { setSelectedRole(UserRole.HR); setError(''); }}
-              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-md font-medium text-xs transition-all ${selectedRole === UserRole.HR ? 'bg-white shadow text-blue-600 ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-md font-medium text-xs transition-all ${selectedRole === UserRole.HR ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400 ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}
             >
                 <Lock className="w-4 h-4" /> 
                 <span>HR Admin</span>
@@ -73,7 +73,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <button 
               type="button"
               onClick={() => { setSelectedRole(UserRole.SITE_INCHARGE); setError(''); }}
-              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-md font-medium text-xs transition-all ${selectedRole === UserRole.SITE_INCHARGE ? 'bg-white shadow text-blue-600 ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-md font-medium text-xs transition-all ${selectedRole === UserRole.SITE_INCHARGE ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400 ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}
             >
                 <Briefcase className="w-4 h-4" /> 
                 <span>Site Incharge</span>
@@ -81,7 +81,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <button 
               type="button"
               onClick={() => { setSelectedRole(UserRole.EMPLOYEE); setError(''); }}
-              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-md font-medium text-xs transition-all ${selectedRole === UserRole.EMPLOYEE ? 'bg-white shadow text-blue-600 ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
+              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-md font-medium text-xs transition-all ${selectedRole === UserRole.EMPLOYEE ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400 ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}
             >
                 <HardHat className="w-4 h-4" /> 
                 <span>Employee</span>
@@ -92,7 +92,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             {selectedRole === UserRole.HR ? (
                 <>
                     <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">HR Email</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">HR Email</label>
                     <div className="relative">
                         <UserCircle className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
                         <input 
@@ -100,14 +100,14 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
                         placeholder="admin@konark.com"
                         disabled={loading}
                         />
                     </div>
                     </div>
                     <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password</label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
                         <input 
@@ -115,7 +115,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
                         placeholder="••••••••"
                         disabled={loading}
                         />
@@ -125,7 +125,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             ) : (
                 <>
                     <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                         {selectedRole === UserRole.SITE_INCHARGE ? 'Incharge UAN' : 'Employee UAN'} (12-Digit)
                     </label>
                     <div className="relative">
@@ -137,7 +137,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                         title="12 Digit Numeric UAN"
                         value={uan}
                         onChange={(e) => setUan(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono tracking-wider"
+                        className="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono tracking-wider transition-colors"
                         placeholder="100000000001"
                         disabled={loading}
                         />
@@ -152,19 +152,19 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             )}
 
             {error && (
-                <div className="flex items-start gap-2 text-red-600 text-sm bg-red-50 p-3 rounded-lg border border-red-100">
+                <div className="flex items-start gap-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-100 dark:border-red-900/30">
                     <span className="mt-0.5 font-bold">!</span>
                     <span>{error}</span>
                 </div>
             )}
             
-            <button type="submit" disabled={loading} className="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-3 rounded-lg transition-colors shadow-lg flex items-center justify-center gap-2">
+            <button type="submit" disabled={loading} className="w-full bg-slate-800 hover:bg-slate-900 dark:bg-blue-600 dark:hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors shadow-lg flex items-center justify-center gap-2">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (selectedRole === UserRole.HR ? 'Secure Login' : 'Access Dashboard')}
             </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-slate-100 text-center">
-             <div className="inline-flex gap-4 text-xs text-slate-400">
+          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
+             <div className="inline-flex gap-4 text-xs text-slate-400 dark:text-slate-500">
                 <span className="flex items-center gap-1"><Building className="h-3 w-3" /> Konark Ent.</span>
                 <span className="flex items-center gap-1"><Users className="h-3 w-3" /> Secure Access</span>
              </div>

@@ -200,48 +200,48 @@ ON CONFLICT DO NOTHING;
 
   return (
     <div className="fixed inset-0 bg-slate-900 z-[100] flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-200 dark:border-slate-800">
         {/* Header */}
-        <div className="bg-red-50 p-6 border-b border-red-100 flex items-start gap-4">
-            <div className="p-3 bg-red-100 rounded-full text-red-600 shrink-0">
+        <div className="bg-red-50 dark:bg-red-900/20 p-6 border-b border-red-100 dark:border-red-900/30 flex items-start gap-4">
+            <div className="p-3 bg-red-100 dark:bg-red-900/40 rounded-full text-red-600 dark:text-red-400 shrink-0">
                 <AlertTriangle className="w-6 h-6" />
             </div>
             <div>
-                <h2 className="text-xl font-bold text-slate-800">Connection Failed (Self-Hosted Supabase)</h2>
-                <p className="text-slate-600 mt-1">
+                <h2 className="text-xl font-bold text-slate-800 dark:text-white">Connection Failed (Self-Hosted Supabase)</h2>
+                <p className="text-slate-600 dark:text-slate-300 mt-1">
                     {isSchemaError ? "We connected to your server, but the database is empty." : "We couldn't reach your Supabase instance."}
                 </p>
-                <div className="mt-2 text-xs font-mono bg-white border border-red-200 text-red-600 p-2 rounded max-w-xl truncate">
+                <div className="mt-2 text-xs font-mono bg-white dark:bg-slate-950 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 p-2 rounded max-w-xl truncate">
                     Code: {errorCode || 'UNKNOWN'} | {error}
                 </div>
             </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-8">
+        <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-white dark:bg-slate-900">
             
             {/* Step 1: Config (Highlight if Auth/Network Error) */}
             <div className={`flex gap-4 transition-opacity ${isSchemaError ? 'opacity-50' : 'opacity-100'}`}>
                 <div className="flex flex-col items-center gap-2">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${isSchemaError ? 'bg-green-500' : 'bg-slate-800'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${isSchemaError ? 'bg-green-500' : 'bg-slate-800 dark:bg-slate-700'}`}>
                         {isSchemaError ? <Check className="w-5 h-5" /> : '1'}
                     </div>
-                    <div className="w-0.5 h-full bg-slate-200"></div>
+                    <div className="w-0.5 h-full bg-slate-200 dark:bg-slate-700"></div>
                 </div>
                 <div className="pb-8">
-                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
                         <Server className="w-5 h-5 text-slate-400" />
                         Configure Coolify Variables
                     </h3>
-                    <p className="text-slate-500 mb-2">Ensure your environment variables are correct in Coolify.</p>
-                    <div className="bg-slate-100 p-3 rounded-lg border border-slate-200 space-y-2">
+                    <p className="text-slate-500 dark:text-slate-400 mb-2">Ensure your environment variables are correct in Coolify.</p>
+                    <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2">
                         <div className="flex justify-between items-center text-sm">
-                            <code className="text-slate-700 font-bold">VITE_SUPABASE_URL</code>
-                            <span className="text-slate-500 text-xs">Instance URL</span>
+                            <code className="text-slate-700 dark:text-slate-300 font-bold">VITE_SUPABASE_URL</code>
+                            <span className="text-slate-500 dark:text-slate-500 text-xs">Instance URL</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                            <code className="text-slate-700 font-bold">VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY</code>
-                            <span className="text-slate-500 text-xs">Public Key</span>
+                            <code className="text-slate-700 dark:text-slate-300 font-bold">VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY</code>
+                            <span className="text-slate-500 dark:text-slate-500 text-xs">Public Key</span>
                         </div>
                     </div>
                 </div>
@@ -250,14 +250,14 @@ ON CONFLICT DO NOTHING;
             {/* Step 2: Schema (Highlight if Schema Error) */}
             <div className={`flex gap-4 transition-opacity ${!isSchemaError && !isAuthError ? 'opacity-100' : isAuthError ? 'opacity-50' : 'opacity-100'}`}>
                 <div className="flex flex-col items-center gap-2">
-                    <div className={`w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold ${isSchemaError ? 'animate-pulse ring-4 ring-red-100' : ''}`}>2</div>
+                    <div className={`w-8 h-8 rounded-full bg-slate-800 dark:bg-slate-700 text-white flex items-center justify-center font-bold ${isSchemaError ? 'animate-pulse ring-4 ring-red-100 dark:ring-red-900/30' : ''}`}>2</div>
                 </div>
                 <div className="pb-8 w-full">
-                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
                         <Code className="w-5 h-5 text-slate-400" />
                         Run Database Schema
                     </h3>
-                    <p className="text-slate-500 mb-3">
+                    <p className="text-slate-500 dark:text-slate-400 mb-3">
                         Copy this SQL and run it in your <strong>Supabase Studio SQL Editor</strong> to create tables, enable RLS policies, and seed data.
                     </p>
                     <div className="relative group">
@@ -267,7 +267,7 @@ ON CONFLICT DO NOTHING;
                                 {copied ? 'Copied!' : 'Copy SQL'}
                             </button>
                         </div>
-                        <pre className="bg-slate-900 text-slate-300 p-4 rounded-lg text-xs font-mono h-48 overflow-y-auto whitespace-pre">
+                        <pre className="bg-slate-900 dark:bg-black text-slate-300 p-4 rounded-lg text-xs font-mono h-48 overflow-y-auto whitespace-pre">
                             {schema}
                         </pre>
                     </div>
@@ -276,8 +276,8 @@ ON CONFLICT DO NOTHING;
         </div>
 
         {/* Footer */}
-        <div className="bg-slate-50 p-6 border-t border-slate-200 flex justify-end gap-3">
-             <button onClick={onRetry} className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg transition-colors">
+        <div className="bg-slate-50 dark:bg-slate-900 p-6 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
+             <button onClick={onRetry} className="flex items-center gap-2 px-6 py-3 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white font-bold rounded-lg transition-colors">
                 <RefreshCw className="w-4 h-4" /> Verify Connection
              </button>
         </div>
