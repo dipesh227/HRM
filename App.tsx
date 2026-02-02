@@ -104,7 +104,7 @@ const App: React.FC = () => {
 
   if (dbStatus === 'CHECKING') {
       return (
-          <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
+          <div className="min-h-[100dvh] bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
               <div className="bg-white dark:bg-slate-900 p-8 rounded-xl shadow-lg flex flex-col items-center gap-4">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
                   <p className="text-slate-600 dark:text-slate-300 font-medium">Connecting to Database...</p>
@@ -134,7 +134,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-100 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-200">
+    <div className="flex flex-col h-[100dvh] w-full bg-slate-100 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-200 overflow-hidden">
       <Navbar 
         user={user} 
         theme={theme} 
@@ -147,7 +147,7 @@ const App: React.FC = () => {
         companyLogo={companyLogo} // Pass the fetched logo
       />
 
-      <div className="flex-1 overflow-y-auto relative bg-slate-100 dark:bg-slate-950">
+      <div className="flex-1 overflow-y-auto relative bg-slate-100 dark:bg-slate-950 overscroll-none">
         {/* Dashboards now receive sidebar props to manage navigation state */}
         {user.role === UserRole.HR && (
             <HRDashboard 

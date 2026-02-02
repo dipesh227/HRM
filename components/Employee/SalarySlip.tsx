@@ -6,7 +6,7 @@ import html2canvas from 'html2canvas';
 import { Download, Loader2 } from 'lucide-react';
 
 interface SalarySlipProps {
-  user: User;
+  user: User & { profilePhotoUrl?: string }; // Extended User interface for photo
   salary: SalaryView;
   company: Company;
   site: Site;
@@ -128,7 +128,7 @@ export const SalarySlip: React.FC<SalarySlipProps> = ({ user, salary, company, s
                         </div>
 
                         {/* Employee & Site Info */}
-                        <div className="grid grid-cols-2 gap-8 mb-8">
+                        <div className="grid grid-cols-2 gap-8 mb-8 relative">
                             <div>
                                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 border-b border-slate-200 pb-1">Employee Details</h3>
                                 <div className="space-y-1">
@@ -137,6 +137,14 @@ export const SalarySlip: React.FC<SalarySlipProps> = ({ user, salary, company, s
                                     <div className="flex"><span className="w-24 text-sm text-slate-500">Designation:</span><span className="text-sm font-medium text-slate-900">{user.role}</span></div>
                                 </div>
                             </div>
+                            
+                            {/* Profile Photo - Absolute positioned in the top right of this section */}
+                            {user.profilePhotoUrl && (
+                                <div className="absolute right-0 top-0 h-28 w-24 bg-slate-100 border border-slate-200 p-1">
+                                    <img src={user.profilePhotoUrl} alt="Employee" className="w-full h-full object-cover" />
+                                </div>
+                            )}
+
                             <div>
                                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 border-b border-slate-200 pb-1">Work Location</h3>
                                 <div className="space-y-1">

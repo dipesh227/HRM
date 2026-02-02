@@ -12,7 +12,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button: React.FC<ButtonProps> = ({ 
   children, variant = 'primary', size = 'md', isLoading, icon: Icon, className = '', disabled, fullWidth = false, ...props 
 }) => {
-  const baseStyles = "relative font-bold transition-all duration-200 flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97] tracking-tight";
+  // Added active:scale-[0.98] for mobile touch feedback
+  const baseStyles = "relative font-bold transition-all duration-200 flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] tracking-tight touch-manipulation";
   const widthClass = fullWidth ? 'w-full' : '';
   const roundedClass = "rounded-2xl"; 
   
@@ -27,7 +28,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   const sizes = {
     sm: "px-4 py-2 text-xs min-h-[36px]",
-    md: "px-6 py-3.5 text-sm min-h-[48px]", // Comfortable touch target
+    md: "px-6 py-3.5 text-sm min-h-[48px]", // Comfortable touch target (48px standard)
     lg: "px-8 py-4.5 text-base min-h-[56px]"
   };
 
@@ -37,8 +38,8 @@ export const Button: React.FC<ButtonProps> = ({
       disabled={isLoading || disabled} 
       {...props}
     >
-      {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : Icon && <Icon className="w-5 h-5" />}
-      <span>{children}</span>
+      {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : Icon && <Icon className="w-5 h-5 shrink-0" />}
+      <span className="truncate">{children}</span>
     </button>
   );
 };

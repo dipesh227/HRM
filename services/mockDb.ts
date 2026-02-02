@@ -67,8 +67,8 @@ const MOCK_DB = {
         { id: 'r5', title: 'Other', description: 'General', isSystemDefault: true }
     ] as JobRole[],
     employees: [
-        { uan: '100000000001', name: 'Rajesh Kumar', role: 'Supervisor', companyId: 'c1', siteId: 's1', status: EmployeeStatus.APPROVED, addedBy: 'SYSTEM', joinedDate: '2024-01-01' },
-        { uan: '100000000002', name: 'Sunil Patil', role: 'Driver', companyId: 'c1', siteId: 's1', status: EmployeeStatus.APPROVED, addedBy: 'SYSTEM', joinedDate: '2024-01-15' },
+        { uan: '100000000001', name: 'Rajesh Kumar', role: 'Supervisor', companyId: 'c1', siteId: 's1', status: EmployeeStatus.APPROVED, addedBy: 'SYSTEM', joinedDate: '2024-01-01', mobile: '9876543210' },
+        { uan: '100000000002', name: 'Sunil Patil', role: 'Driver', companyId: 'c1', siteId: 's1', status: EmployeeStatus.APPROVED, addedBy: 'SYSTEM', joinedDate: '2024-01-15', mobile: '9876543211' },
         { uan: '100000000003', name: 'Amit Singh', role: 'Helper', companyId: 'c1', siteId: 's1', status: EmployeeStatus.PENDING, addedBy: 'SYSTEM', joinedDate: '2024-02-01' }
     ] as Employee[],
     salary_records: [] as SalaryRecord[],
@@ -529,6 +529,27 @@ class DBService {
     await this.logAudit(adminId, approved ? 'EMP_APPROVED' : 'EMP_REJECTED', uan, 'Status Update');
   }
 
+  // NEW: Update Employee Profile (Personal Details)
+  async updateEmployeeProfile(uan: string, updates: Partial<Employee>): Promise<void> {
+      if (this.mockMode) {
+          const idx = MOCK_DB.employees.findIndex(e => e.uan === uan);
+          if (idx >= 0) {
+              MOCK_DB.employees[idx] = { ...MOCK_DB.employees[idx], ...updates };
+          }
+          return;
+      }
+
+      const dbUpdates: any = {};
+      if (updates.personalEmail !== undefined) dbUpdates.personal_email = updates.personalEmail;
+      if (updates.mobile !== undefined) dbUpdates.mobile = updates.mobile;
+      if (updates.address !== undefined) dbUpdates.address = updates.address;
+      if (updates.profilePhotoUrl !== undefined) dbUpdates.profile_photo_url = updates.profilePhotoUrl;
+
+      const { error } = await this.client.from('employees').update(dbUpdates).eq('uan', uan);
+      if (error) throw error;
+      await this.logAudit(uan, 'EMP_UPDATE', 'Self', 'Updated Personal Profile');
+  }
+
   // --- SALARY (Module 5) ---
 
   // NEW: Single Record Upsert
@@ -779,7 +800,12 @@ class DBService {
       return {
           uan: e.uan, name: e.name, role: e.role,
           companyId: e.company_id, siteId: e.site_id,
-          status: e.status, addedBy: e.added_by, joinedDate: e.joined_date
+          status: e.status, addedBy: e.added_by, joinedDate: e.joined_date,
+          // New Fields
+          profilePhotoUrl: e.profile_photo_url,
+          personalEmail: e.personal_email,
+          mobile: e.mobile,
+          address: e.address
       };
   }
 }

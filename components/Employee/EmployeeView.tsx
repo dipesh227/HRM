@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, SalaryView, Company, Site } from '../../types';
+import { User, SalaryView, Company, Site, Employee } from '../../types';
 import { dbService } from '../../services/mockDb';
 import { Loader2, Calendar, FileText, UserCircle, Activity } from 'lucide-react';
 import { SalarySlip } from './SalarySlip';
@@ -24,6 +24,9 @@ const EmployeeView: React.FC<Props> = ({ user, isSidebarOpen, onSidebarClose, on
   const [salary, setSalary] = useState<SalaryView | undefined>(undefined);
   const [companyDetails, setCompanyDetails] = useState<Company | undefined>(undefined);
   const [siteDetails, setSiteDetails] = useState<Site | undefined>(undefined);
+  
+  // Extended user details with photo
+  const [employeeDetails, setEmployeeDetails] = useState<Employee | undefined>(undefined);
 
   // Mobile Header Title logic
   const tabs = [
@@ -34,9 +37,17 @@ const EmployeeView: React.FC<Props> = ({ user, isSidebarOpen, onSidebarClose, on
   useEffect(() => {
       const init = async () => {
           setLoading(true);
+          // Fetch history
           const history = await dbService.getEmployeeSalaryHistory(user.id);
           setAvailablePeriods(history);
           if(history.length > 0) setSelectedPeriod(`${history[0].year}-${history[0].month}`);
+          
+          // Fetch full employee details (for photo)
+          try {
+              const emp = await dbService.getEmployeeByUAN(user.id);
+              setEmployeeDetails(emp);
+          } catch(e) { console.error("Failed to load employee details", e); }
+
           setLoading(false);
       };
       init();
@@ -127,7 +138,12 @@ const EmployeeView: React.FC<Props> = ({ user, isSidebarOpen, onSidebarClose, on
                     <div className="h-64 flex items-center justify-center gap-2 text-slate-500"><Loader2 className="animate-spin"/> Loading Payslip...</div>
                 ) : salary && companyDetails && siteDetails ? (
                     <div className="pb-12">
-                        <SalarySlip user={user} salary={salary} company={companyDetails} site={siteDetails} />
+                        <SalarySlip 
+                            user={{ ...user, profilePhotoUrl: employeeDetails?.profilePhotoUrl }} 
+                            salary={salary} 
+                            company={companyDetails} 
+                            site={siteDetails} 
+                        />
                     </div>
                 ) : (
                     <div className="text-center py-20 bg-white dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-300 dark:border-slate-800">

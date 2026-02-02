@@ -82,6 +82,11 @@ export interface Employee {
   status: EmployeeStatus;
   addedBy: string; // UAN or UUID
   joinedDate: string;
+  // Personal Details
+  profilePhotoUrl?: string;
+  personalEmail?: string;
+  mobile?: string;
+  address?: string;
 }
 
 // Raw Record in DB

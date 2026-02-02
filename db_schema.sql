@@ -1,5 +1,5 @@
 -- PostgreSQL Database Schema for Konark HR System
--- Specification Implementation v5.0 (Added Dynamic Job Roles)
+-- Specification Implementation v5.1 (Added Employee Profile Photo & Personal Details)
 
 -- 1. SETUP & ENUMS
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -71,12 +71,18 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS employees (
   uan TEXT PRIMARY KEY CHECK (uan ~ '^[0-9]{12}$'),
   name TEXT NOT NULL,
-  role TEXT NOT NULL, -- Changed from ENUM to TEXT to support dynamic roles
+  role TEXT NOT NULL, 
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
   status employee_status DEFAULT 'PENDING',
   added_by TEXT NOT NULL,
-  joined_date DATE NOT NULL DEFAULT CURRENT_DATE
+  joined_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  
+  -- NEW FIELDS FOR PERSONAL PROFILE
+  profile_photo_url TEXT,
+  personal_email TEXT,
+  mobile TEXT,
+  address TEXT
 );
 
 -- SALARY RECORDS (Module 5)
@@ -193,3 +199,10 @@ INSERT INTO job_roles (title, description, is_system_default) VALUES
 ('Safety Officer', 'Ensures site safety protocols', TRUE),
 ('Other', 'General Role', TRUE)
 ON CONFLICT (title) DO NOTHING;
+
+-- *** SQL UPDATE COMMAND FOR EXISTING USERS ***
+-- Run this in Supabase SQL Editor if you are updating an existing database:
+-- ALTER TABLE employees ADD COLUMN IF NOT EXISTS profile_photo_url TEXT;
+-- ALTER TABLE employees ADD COLUMN IF NOT EXISTS personal_email TEXT;
+-- ALTER TABLE employees ADD COLUMN IF NOT EXISTS mobile TEXT;
+-- ALTER TABLE employees ADD COLUMN IF NOT EXISTS address TEXT;
