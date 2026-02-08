@@ -1,23 +1,37 @@
 import React, { useState } from 'react';
-import { UserRole, User } from '../../types';
+import { UserRole } from '../../types';
 import { dbService } from '../../services/mockDb';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { UserCircle, Lock, Building, Users, BadgeCheck, HardHat, Briefcase, ArrowRight, ShieldCheck } from 'lucide-react';
 import { InputField } from '../UI/InputField';
 import { Button } from '../UI/Button';
 
 interface LoginProps {
-  onLogin: (user: User) => void;
-  branding?: {
-      name: string;
-      logoUrl?: string;
-  };
+    // Props are optional now as we use context, but keeping for compatibility if reused
+    branding?: { name: string; logoUrl?: string; };
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, branding }) => {
+const Login: React.FC<LoginProps> = ({ branding }) => {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.HR);
   const [formData, setFormData] = useState({ email: '', password: '', uan: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Local state for branding if not passed props (simplified for this view)
+  const [localBranding, setLocalBranding] = useState(branding || { name: 'Konark HR', logoUrl: undefined });
+  
+  // Fetch branding on mount if not provided
+  React.useEffect(() => {
+     if(!branding) {
+         dbService.getCompanyDetails('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11').then(comp => {
+             if(comp) setLocalBranding({ name: comp.name, logoUrl: comp.logoUrl });
+         });
+     }
+  }, [branding]);
 
   const updateForm = (key: string, value: string) => setFormData(prev => ({ ...prev, [key]: value }));
 
@@ -27,18 +41,21 @@ const Login: React.FC<LoginProps> = ({ onLogin, branding }) => {
     setLoading(true);
 
     try {
+        let user;
         if (selectedRole === UserRole.HR) {
-            const user = await dbService.loginHR(formData.email, formData.password);
-            onLogin(user);
+            user = await dbService.loginHR(formData.email, formData.password);
         } else {
-            const user = await dbService.loginStaff(formData.uan);
-            onLogin(user);
+            user = await dbService.loginStaff(formData.uan);
         }
+        
+        login(user);
+        
+        // Navigation is handled by the ProtectedRoute / DashboardRedirect in App.tsx
+        // but we can explicitly push to /
+        navigate('/', { replace: true });
+        
     } catch (err: any) {
-        // Generic error message is already returned by dbService to prevent enumeration,
-        // but we display it cleanly here.
         setError(err.message || "Authentication failed.");
-    } finally {
         setLoading(false);
     }
   };
@@ -61,19 +78,18 @@ const Login: React.FC<LoginProps> = ({ onLogin, branding }) => {
           
           {/* Header */}
           <div className="pt-10 pb-8 px-8 text-center relative">
-            {branding?.logoUrl ? (
+            {localBranding.logoUrl ? (
                 <div className="inline-flex h-20 w-20 rounded-2xl items-center justify-center mb-6 shadow-glow shadow-blue-500/30 ring-4 ring-white/10 overflow-hidden bg-white">
-                    <img src={branding.logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
+                    <img src={localBranding.logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
                 </div>
             ) : (
                 <div className="inline-flex h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl items-center justify-center mb-6 shadow-glow shadow-blue-500/30 ring-4 ring-white/10">
-                   <span className="text-2xl font-bold text-white tracking-tighter">{branding?.name ? branding.name.substring(0,2).toUpperCase() : 'KE'}</span>
+                   <span className="text-2xl font-bold text-white tracking-tighter">{localBranding.name ? localBranding.name.substring(0,2).toUpperCase() : 'KE'}</span>
                 </div>
             )}
             <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Welcome Back</h1>
-            <p className="text-slate-400 font-medium">Sign in to {branding?.name || 'Portal'}</p>
+            <p className="text-slate-400 font-medium">Sign in to {localBranding.name || 'Portal'}</p>
             
-            {/* Security Badge */}
             <div className="inline-flex items-center gap-1.5 mt-4 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] font-bold uppercase tracking-wider">
                 <ShieldCheck className="w-3 h-3" /> End-to-End Encrypted
             </div>
@@ -133,7 +149,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, branding }) => {
                        <InputField 
                           label={selectedRole === UserRole.SITE_INCHARGE ? 'Manager UAN' : 'Employee UAN'} 
                           icon={BadgeCheck} 
-                          type="tel" // Opens numeric keypad on mobile
+                          type="tel"
                           required 
                           pattern="\d*"
                           maxLength={12}
@@ -172,10 +188,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, branding }) => {
             </form>
           </div>
           
-          {/* Footer */}
           <div className="px-8 py-5 bg-black/30 border-t border-white/5 text-center backdrop-blur-md">
                <div className="inline-flex items-center gap-6 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-                  <span className="flex items-center gap-1.5"><Building className="h-3 w-3" /> {branding?.name || 'Enterprise'}</span>
+                  <span className="flex items-center gap-1.5"><Building className="h-3 w-3" /> {localBranding.name}</span>
                   <span className="w-1 h-1 rounded-full bg-slate-700"></span>
                   <span className="flex items-center gap-1.5"><Users className="h-3 w-3" /> Secure Access</span>
                </div>

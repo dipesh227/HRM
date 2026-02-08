@@ -1,23 +1,23 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+
 import Login from './components/Auth/Login';
 import HRDashboard from './components/HR/HRDashboard';
 import SiteDashboard from './components/Site/SiteDashboard';
 import EmployeeView from './components/Employee/EmployeeView';
 import { DatabaseSetup } from './components/DatabaseSetup';
 import { Navbar } from './components/Layout/Navbar';
-import { User, UserRole, Notification } from './types';
+import { UserRole, Notification } from './types';
 import { dbService } from './services/mockDb';
 import { Loader2, Moon, Sun } from 'lucide-react';
 
-const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [showNotifications, setShowNotifications] = useState(false);
+// --- Layout Wrapper ---
+const AppLayout: React.FC = () => {
+  const { user, logout } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
-  
-  // Branding State
-  const [companyName, setCompanyName] = useState<string>('Konark HR');
-  const [companyLogo, setCompanyLogo] = useState<string | undefined>(undefined); 
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -26,188 +26,189 @@ const App: React.FC = () => {
     }
     return 'light';
   });
-
-  const [dbStatus, setDbStatus] = useState<'CHECKING' | 'CONNECTED' | 'ERROR'>('CHECKING');
-  const [dbError, setDbError] = useState('');
-  const [dbErrorCode, setDbErrorCode] = useState<string | undefined>(undefined);
-
-  // Default Company ID for the system owner (Used for login screen branding)
+  
+  // Branding
+  const [companyName, setCompanyName] = useState<string>('Konark HR');
+  const [companyLogo, setCompanyLogo] = useState<string | undefined>(undefined);
   const DEFAULT_COMPANY_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
   useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    if (theme === 'dark') document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
+  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
-  const checkDb = async () => {
-      setDbStatus('CHECKING');
-      setDbErrorCode(undefined);
-      const { connected, error, code } = await dbService.checkConnection();
-      if (connected) {
-          setDbStatus('CONNECTED');
-      } else {
-          setDbError(error || 'Unknown Error');
-          setDbErrorCode(code);
-          setDbStatus('ERROR');
-      }
-  };
-
-  // FETCH GLOBAL BRANDING (Favicon, Title, Logo)
+  // Load Branding
   useEffect(() => {
       const fetchGlobalBranding = async () => {
           try {
-              // Always fetch the "System Owner" company profile first to set the login branding
               const comp = await dbService.getCompanyDetails(DEFAULT_COMPANY_ID);
               if (comp) {
-                  // Update Browser Metadata
-                  document.title = comp.metaTitle || comp.name || 'HR Portal';
-                  
-                  // Update Meta Description
-                  let metaDesc = document.querySelector('meta[name="description"]');
-                  if (!metaDesc) {
-                      metaDesc = document.createElement('meta');
-                      metaDesc.setAttribute('name', 'description');
-                      document.head.appendChild(metaDesc);
-                  }
-                  metaDesc.setAttribute('content', comp.metaDescription || 'HR Management System');
-
-                  // Update Favicon
-                  if (comp.faviconUrl) {
-                      let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
-                      if (!link) {
-                          link = document.createElement('link');
-                          link.rel = 'icon';
-                          document.getElementsByTagName('head')[0].appendChild(link);
-                      }
-                      link.href = comp.faviconUrl;
-                  }
-
-                  // Update State
                   setCompanyName(comp.name);
                   setCompanyLogo(comp.logoUrl);
+                  document.title = comp.metaTitle || comp.name;
               }
-          } catch (e) {
-              console.error("Failed to load branding", e);
-          }
+          } catch (e) { console.error(e); }
       };
-      
-      if (dbStatus === 'CONNECTED') {
-          fetchGlobalBranding();
-      }
-  }, [dbStatus]);
-
-  useEffect(() => {
-    checkDb();
+      fetchGlobalBranding();
   }, []);
 
+  // Poll Notifications
   useEffect(() => {
-    if (user) {
-        // Fetch Notifications
-        const fetchNotifications = async () => {
-            try {
-                const data = await dbService.getNotifications(user.id);
-                setNotifications(data);
-            } catch (e) {
-                console.error("Failed to fetch notifications", e);
-            }
-        };
-
-        fetchNotifications();
-        const interval = setInterval(fetchNotifications, 3000);
-        return () => clearInterval(interval);
-    } else {
-        setNotifications([]);
-    }
+      if (!user) return;
+      const fetchNotes = async () => {
+          try {
+              const data = await dbService.getNotifications(user.id);
+              setNotifications(data);
+          } catch(e) {}
+      };
+      fetchNotes();
+      const interval = setInterval(fetchNotes, 30000);
+      return () => clearInterval(interval);
   }, [user]);
 
-  const handleLogout = () => {
-    setUser(null);
-    setShowNotifications(false);
-    setIsSidebarOpen(false);
-    // Note: We don't reset companyLogo here so the login screen stays branded
-  };
-
-  if (dbStatus === 'CHECKING') {
-      return (
-          <div className="min-h-[100dvh] bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
-              <div className="bg-white dark:bg-slate-900 p-8 rounded-xl shadow-lg flex flex-col items-center gap-4">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                  <p className="text-slate-600 dark:text-slate-300 font-medium">Loading System...</p>
-              </div>
-          </div>
-      );
-  }
-
-  if (dbStatus === 'ERROR') {
-      return <DatabaseSetup onRetry={checkDb} error={dbError} errorCode={dbErrorCode} />;
-  }
-
-  if (!user) {
-    return (
-        <div className="relative">
-             <div className="absolute top-4 right-4 z-50">
-                <button 
-                  onClick={toggleTheme} 
-                  className="p-2 bg-white dark:bg-slate-800 rounded-full shadow-md text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                >
-                  {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-                </button>
-             </div>
-             <Login onLogin={setUser} branding={{ name: companyName, logoUrl: companyLogo }} />
-        </div>
-    );
-  }
+  if (!user) return <Navigate to="/login" replace />;
 
   return (
     <div className="flex flex-col h-[100dvh] w-full bg-slate-100 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-200 overflow-hidden">
-      <Navbar 
-        user={user} 
-        theme={theme} 
-        toggleTheme={toggleTheme} 
-        onLogout={handleLogout} 
-        notifications={notifications}
-        showNotifications={showNotifications}
-        setShowNotifications={setShowNotifications}
-        onMenuClick={() => setIsSidebarOpen(true)}
-        companyLogo={companyLogo} 
-        companyName={companyName} // Pass name to navbar
-      />
-
-      <div className="flex-1 overflow-y-auto relative bg-slate-100 dark:bg-slate-950 overscroll-none">
-        {user.role === UserRole.HR && (
-            <HRDashboard 
-                user={user} 
-                isSidebarOpen={isSidebarOpen} 
-                onSidebarClose={() => setIsSidebarOpen(false)} 
-                onLogout={handleLogout}
-            />
-        )}
-        {user.role === UserRole.SITE_INCHARGE && (
-            <SiteDashboard 
-                user={user}
-                isSidebarOpen={isSidebarOpen}
-                onSidebarClose={() => setIsSidebarOpen(false)}
-                onLogout={handleLogout}
-            />
-        )}
-        {user.role === UserRole.EMPLOYEE && (
-             <EmployeeView 
-                user={user} 
-                isSidebarOpen={isSidebarOpen}
-                onSidebarClose={() => setIsSidebarOpen(false)}
-                onLogout={handleLogout}
-             />
-        )}
-      </div>
+        <Navbar 
+            user={user} 
+            theme={theme} 
+            toggleTheme={toggleTheme} 
+            onLogout={logout} 
+            notifications={notifications}
+            showNotifications={showNotifications}
+            setShowNotifications={setShowNotifications}
+            onMenuClick={() => setIsSidebarOpen(true)}
+            companyLogo={companyLogo} 
+            companyName={companyName}
+        />
+        <div className="flex-1 overflow-y-auto relative bg-slate-100 dark:bg-slate-950 overscroll-none">
+            {/* We pass the sidebar props down to the children via React.cloneElement or Context if we were fully rigorous, 
+                but for now we route to the Dashboards which accept these props. 
+                However, since Route elements are instantiated here, we can pass props directly. 
+            */}
+            <Outlet context={{ isSidebarOpen, setIsSidebarOpen }} />
+        </div>
     </div>
+  );
+};
+
+// --- Protected Route Guard ---
+const ProtectedRoute: React.FC<{ allowedRoles: UserRole[], children: React.ReactNode }> = ({ allowedRoles, children }) => {
+    const { user } = useAuth();
+    if (!user) return <Navigate to="/login" replace />;
+    if (!allowedRoles.includes(user.role)) return <Navigate to="/" replace />;
+    
+    // Inject sidebar props if the child is a functional component that accepts them
+    // Note: In strict routing, sidebar state should be lifted or in context. 
+    // For this migration, we assume the dashboard handles its own sidebar or ignores it if closed.
+    return <>{children}</>;
+};
+
+// --- Role Redirector ---
+const DashboardRedirect: React.FC = () => {
+    const { user } = useAuth();
+    if (!user) return <Navigate to="/login" replace />;
+    
+    if (user.role === UserRole.HR) return <Navigate to="/hr" replace />;
+    if (user.role === UserRole.SITE_INCHARGE) return <Navigate to="/site" replace />;
+    return <Navigate to="/employee" replace />;
+};
+
+// --- Main App Logic ---
+const AppContent: React.FC = () => {
+    const [dbStatus, setDbStatus] = useState<'CHECKING' | 'CONNECTED' | 'ERROR'>('CHECKING');
+    const [dbError, setDbError] = useState('');
+    const [dbErrorCode, setDbErrorCode] = useState<string | undefined>(undefined);
+
+    useEffect(() => {
+        const check = async () => {
+            const { connected, error, code } = await dbService.checkConnection();
+            if (connected) setDbStatus('CONNECTED');
+            else {
+                setDbError(error || 'Unknown Error');
+                setDbErrorCode(code);
+                setDbStatus('ERROR');
+            }
+        };
+        check();
+    }, []);
+
+    if (dbStatus === 'CHECKING') {
+        return (
+             <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
+                 <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+             </div>
+        );
+    }
+
+    if (dbStatus === 'ERROR') {
+        return <DatabaseSetup onRetry={() => window.location.reload()} error={dbError} errorCode={dbErrorCode} />;
+    }
+
+    return (
+        <BrowserRouter>
+            <Routes>
+                <Route path="/login" element={<Login />} />
+                
+                <Route element={<AppLayout />}>
+                    <Route path="/" element={<DashboardRedirect />} />
+                    
+                    <Route path="/hr" element={
+                        <ProtectedRoute allowedRoles={[UserRole.HR]}>
+                            {/* We need a wrapper to consume the outlet context for sidebar */}
+                            <HRDashboardWrapper />
+                        </ProtectedRoute>
+                    } />
+                    
+                    <Route path="/site" element={
+                        <ProtectedRoute allowedRoles={[UserRole.SITE_INCHARGE]}>
+                            <SiteDashboardWrapper />
+                        </ProtectedRoute>
+                    } />
+                    
+                    <Route path="/employee" element={
+                        <ProtectedRoute allowedRoles={[UserRole.EMPLOYEE]}>
+                             <EmployeeViewWrapper />
+                        </ProtectedRoute>
+                    } />
+                </Route>
+                
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+        </BrowserRouter>
+    );
+};
+
+// --- Wrappers to bridge Layout Context (Sidebar) to Dashboards ---
+import { useOutletContext } from 'react-router-dom';
+
+const HRDashboardWrapper = () => {
+    const { user, logout } = useAuth();
+    const { isSidebarOpen, setIsSidebarOpen } = useOutletContext<any>();
+    return <HRDashboard user={user!} isSidebarOpen={isSidebarOpen} onSidebarClose={() => setIsSidebarOpen(false)} onLogout={logout} />;
+};
+
+const SiteDashboardWrapper = () => {
+    const { user, logout } = useAuth();
+    const { isSidebarOpen, setIsSidebarOpen } = useOutletContext<any>();
+    return <SiteDashboard user={user!} isSidebarOpen={isSidebarOpen} onSidebarClose={() => setIsSidebarOpen(false)} onLogout={logout} />;
+};
+
+const EmployeeViewWrapper = () => {
+    const { user, logout } = useAuth();
+    const { isSidebarOpen, setIsSidebarOpen } = useOutletContext<any>();
+    return <EmployeeView user={user!} isSidebarOpen={isSidebarOpen} onSidebarClose={() => setIsSidebarOpen(false)} onLogout={logout} />;
+};
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+        <AppContent />
+    </AuthProvider>
   );
 };
 
