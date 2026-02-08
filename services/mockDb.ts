@@ -54,7 +54,6 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY) {
 export type ConnectionStatus = { connected: boolean; error?: string; code?: string; usingMock?: boolean; };
 
 // --- MOCK DATA STORE (Fallback) ---
-// (Kept separate for offline dev, unrelated to encryption logic)
 const MOCK_DB = {
     companies: [{ id: 'c1', clientId: 'KONARK001', name: 'Konark Enterprises Pvt. Ltd.', logoUrl: 'https://via.placeholder.com/150', email: 'info@konark.com', mobile: '9988776655', address: 'Pune, India' }] as Company[],
     sites: [{ id: 's1', companyId: 'c1', name: 'Konark Site - Pune HQ', siteCode: 'KE-PUN-01', address: 'Plot 45, Infotech Park', city: 'Pune', state: 'MH', status: SiteStatus.ACTIVE }] as Site[],
@@ -80,9 +79,11 @@ class DBService {
   async checkConnection(): Promise<ConnectionStatus> {
       if (!supabase) { this.mockMode = true; return { connected: true, usingMock: true }; }
       try {
-          // Check against the VIEW, not the table, to ensure decryption is working
           const { error } = await supabase.from('v_companies_decrypted').select('count', { count: 'exact', head: true });
-          if (error) { if (error.code === 'PGRST301') return { connected: true }; throw error; }
+          if (error) { 
+            if (error.code === 'PGRST301') return { connected: true }; 
+            return { connected: false, error: error.message, code: error.code };
+          }
           return { connected: true };
       } catch (e: any) {
           console.warn("DB Connection Failed. Switching to Mock Mode.", e.message);
@@ -108,8 +109,6 @@ class DBService {
 
     try {
         const cleanEmail = sanitize(email);
-        
-        // RPC: secure_hr_login handles SHA256 Lookup & Decryption internally
         const { data, error } = await this.client.rpc("secure_hr_login", {
           p_email: cleanEmail,
           p_password: password
@@ -124,7 +123,7 @@ class DBService {
             id: userData.id,
             identityType: 'UUID',
             email: cleanEmail,
-            name: userData.name, // Decrypted by RPC
+            name: userData.name, 
             role: userData.role as UserRole,
             companyId: userData.company_id
         };
@@ -135,9 +134,8 @@ class DBService {
 
   async loginStaff(uan: string): Promise<User> {
       const cleanUan = sanitize(uan.trim());
-      if (this.mockMode) { /* Mock Logic Omitted for Brevity */ return MOCK_DB.employees[0] as any; }
+      if (this.mockMode) { return MOCK_DB.employees[0] as any; }
 
-      // Query the DECRYPTED VIEW
       const { data: emp, error } = await this.client
           .from('v_employees_decrypted')
           .select('*')
@@ -153,18 +151,17 @@ class DBService {
       return {
           id: emp.uan,
           identityType: 'UAN',
-          name: emp.name, // Decrypted
+          name: emp.name, 
           role: sysRole,
           companyId: emp.company_id,
           siteId: emp.site_id
       };
   }
 
-  // --- SECURE DATA ACCESS (READING FROM VIEWS) ---
+  // --- SECURE DATA ACCESS ---
 
   async getAllSites(): Promise<Site[]> {
     if (this.mockMode) return [...MOCK_DB.sites];
-    // Query v_sites_decrypted
     const { data, error } = await this.client.from('v_sites_decrypted').select('*').order('name');
     if (error) throw error;
     return (data || []).map(this.mapSite);
@@ -172,7 +169,6 @@ class DBService {
 
   async getAllEmployees(): Promise<Employee[]> {
     if (this.mockMode) return [...MOCK_DB.employees];
-    // Query v_employees_decrypted
     const { data, error } = await this.client.from('v_employees_decrypted').select('*').order('joined_date', { ascending: false });
     if (error) throw error;
     return (data || []).map(this.mapEmployee);
@@ -197,12 +193,11 @@ class DBService {
       return (data || []).map(this.mapEmployee);
   }
 
-  // --- SECURE DATA INSERTION (USING RPCs OR AUTO-ENCRYPT TRIGGERS) ---
+  // --- SECURE DATA INSERTION (RPCs) ---
 
   async addEmployee(emp: Employee): Promise<void> {
       if (this.mockMode) { MOCK_DB.employees.push(emp); return; }
       
-      // Use RPC to Encrypt data on Insert
       const { error } = await this.client.rpc('secure_upsert_employee', {
           p_uan: emp.uan,
           p_name: emp.name,
@@ -215,49 +210,70 @@ class DBService {
           p_email: emp.personalEmail || '',
           p_bank_ac: emp.bankAccountNo || '',
           p_ifsc: emp.ifscCode || '',
-          p_bank_name: emp.bankName || ''
+          p_bank_name: emp.bankName || '',
+          p_esic: emp.esicNo || '',
+          p_pf: emp.pfNo || ''
       });
 
       if (error) throw error;
       await this.logAudit(emp.addedBy, 'EMP_CREATE', emp.uan, 'Secure Onboarding');
   }
 
-  // --- SALARY (Encrypted Numbers) ---
+  // --- UPDATE EMPLOYEE PROFILE (Merge & Update) ---
+  // Fixes: Wiping out fields when only partial data provided
+  async updateEmployeeProfile(uan: string, data: Partial<Employee>) { 
+      if (this.mockMode) return;
+
+      // 1. Fetch Existing Record
+      const existing = await this.getEmployeeByUAN(uan);
+      if (!existing) throw new Error("Employee not found");
+
+      // 2. Merge existing with updates
+      const merged = { ...existing, ...data };
+
+      // 3. Call RPC with fully merged object
+      const { error } = await this.client.rpc('secure_upsert_employee', {
+          p_uan: merged.uan,
+          p_name: merged.name,
+          p_role: merged.role,
+          p_company_id: merged.companyId,
+          p_site_id: merged.siteId,
+          p_added_by: merged.addedBy,
+          p_mobile: merged.mobile || '',
+          p_address: merged.address || '',
+          p_email: merged.personalEmail || '',
+          p_bank_ac: merged.bankAccountNo || '',
+          p_ifsc: merged.ifscCode || '',
+          p_bank_name: merged.bankName || '',
+          p_esic: merged.esicNo || '',
+          p_pf: merged.pfNo || ''
+      });
+
+      if (error) throw error;
+      await this.logAudit(existing.addedBy || 'SYSTEM', 'EMP_UPDATE', uan, 'Profile Updated');
+  }
+
+  // --- SALARY ---
 
   async upsertSingleSalary(record: SalaryRecord, actorId: string): Promise<void> {
       if (this.mockMode) return;
+      
+      const { error } = await this.client.rpc('secure_upsert_salary', {
+        p_uan: record.employeeUan,
+        p_site_id: record.siteId,
+        p_month: record.month,
+        p_year: record.year,
+        p_basic: record.basic,
+        p_hra: record.hra,
+        p_allowances: record.allowances,
+        p_pf: record.pfDeduction,
+        p_tax: record.taxDeduction
+      });
 
-      // We need to INSERT raw data into salary_records, but it expects BYTEA.
-      // Since supabase-js doesn't easily support raw pgp_sym_encrypt calls in .insert(),
-      // we must use an RPC or raw query, OR rely on the db_schema having a trigger.
-      // For this solution, we assume the Frontend logic calculates basics and sends them.
-      // We will perform a RAW SQL RPC call for maximum security.
-      
-      // Since creating a dynamic RPC for every field is complex, we will assume 
-      // the DB administrator has set up the `salary_records` table to accept 
-      // raw values via a specific View or we use a helper function.
-      
-      // SIMPLIFIED STRATEGY for this Context:
-      // We map the numeric values to strings, send them to a new RPC `secure_upsert_salary`
-      // which handles the encryption.
-      
-      /* Note: You would need to add this RPC to db_schema.sql, assumed here for brevity */
-      /* For now, we revert to standard update but the backend table columns are bytea... 
-         Wait, direct insert will fail because Types don't match (Numeric vs Bytea). 
-         We MUST use an RPC. */
-         
-      // Let's assume the user accepts we need a `secure_insert_salary` RPC.
-      // Implementing basic RPC call logic here.
-      
-      // Placeholder for actual implementation if we had full control of the backend API.
-      // Since we are modifying a React App that calls Supabase directly:
-      
-      console.warn("Salary Encryption requires backend RPC 'secure_insert_salary'.");
-      // This part assumes the RPC exists or we fallback to mock.
+      if (error) throw new Error("Failed to save salary: " + error.message);
+      await this.logAudit(actorId, 'SALARY_UPDATE', record.employeeUan, `${record.month}/${record.year}`);
   }
   
-  // To make the app functional with the provided schema change, we need to read from 
-  // v_salary_decrypted
   async getEmployeeSalaryView(uan: string, month: number, year: number): Promise<SalaryView | undefined> {
       if (this.mockMode) return undefined;
       
@@ -278,21 +294,50 @@ class DBService {
           siteId: data.site_id,
           month: data.month,
           year: data.year,
-          basic: data.basic,
-          hra: data.hra,
-          allowances: data.allowances,
-          pfDeduction: data.pf_deduction,
-          taxDeduction: data.tax_deduction,
-          netSalary: data.net_salary,
+          basic: Number(data.basic),
+          hra: Number(data.hra),
+          allowances: Number(data.allowances),
+          pfDeduction: Number(data.pf_deduction),
+          taxDeduction: Number(data.tax_deduction),
+          netSalary: Number(data.net_salary),
           isLocked: data.is_locked
       };
+  }
+  
+  async getEmployeeSalaryHistory(uan: string): Promise<{id: string, month: number, year: number}[]> {
+    if (this.mockMode) return [];
+    const { data, error } = await this.client
+        .from('v_salary_decrypted')
+        .select('id, month, year')
+        .eq('employee_uan', uan)
+        .order('year', { ascending: false })
+        .order('month', { ascending: false });
+        
+    if (error) throw error;
+    return data || [];
+  }
+  
+  async uploadSalaryData(recs: SalaryRecord[], actorId: string) {
+    if (this.mockMode) return { processed: recs.length, skipped: 0 };
+    
+    let processed = 0;
+    let errors = 0;
+    for (const rec of recs) {
+        try {
+            await this.upsertSingleSalary(rec, actorId);
+            processed++;
+        } catch (e) {
+            console.error("Failed to process salary record", e);
+            errors++;
+        }
+    }
+    return { processed, skipped: errors };
   }
 
   // --- GENERIC GETTERS ---
   async getHRStats() {
     if (this.mockMode) return { totalCompanies: 1, totalSites: 1, activeSites: 1, pendingApprovals: 0, totalEmployees: 2 };
     
-    // Use Views
     const { count: cCount } = await this.client.from('v_companies_decrypted').select('*', { count: 'exact', head: true });
     const { count: sCount } = await this.client.from('v_sites_decrypted').select('*', { count: 'exact', head: true });
     const { count: eCount } = await this.client.from('v_employees_decrypted').select('*', { count: 'exact', head: true });
@@ -301,7 +346,7 @@ class DBService {
     return {
       totalCompanies: cCount || 0,
       totalSites: sCount || 0,
-      activeSites: sCount || 0, // Simplified
+      activeSites: sCount || 0,
       pendingApprovals: pCount || 0,
       totalEmployees: eCount || 0
     };
@@ -313,7 +358,9 @@ class DBService {
       if (!data) return undefined;
       return { 
           id: data.id, clientId: data.client_id, name: data.name, logoUrl: data.logo_url,
-          email: data.email, mobile: data.mobile, address: data.address
+          email: data.email, mobile: data.mobile, address: data.address,
+          signatureUrl: data.signature_url, stampUrl: data.stamp_url,
+          faviconUrl: data.favicon_url, metaTitle: data.meta_title, metaDescription: data.meta_description
       };
   }
 
@@ -372,18 +419,42 @@ class DBService {
       };
   }
   
-  // Stubs for other methods to prevent TS errors (Full implementation would require more RPCs)
-  async updateHRProfile(uid: string, data: any) { /* implementation */ }
-  async updateCompanyProfile(cid: string, data: any) { /* implementation */ }
-  async uploadSiteLogo(file: File) { return "https://via.placeholder.com/150"; }
-  async createSite(data: any) { /* RPC needed */ }
-  async updateSite(sid: string, data: any) { /* RPC needed */ }
-  async deleteSite(sid: string) { /* implementation */ }
-  async approveEmployee(uan: string, app: boolean, aid: string) { await this.client.from('employees').update({ status: app ? 'APPROVED' : 'REJECTED' }).eq('uan', uan); }
-  async updateEmployeeProfile(uan: string, data: any) { /* RPC needed */ }
-  async deleteSalaryRecord(id: string, aid: string) { /* implementation */ }
-  async uploadSalaryData(recs: any[], aid: string) { return { processed: 0, skipped: 0 }; }
-  async getEmployeeSalaryHistory(uan: string) { return []; }
+  async updateHRProfile(uid: string, data: any) { 
+       // Simplified placeholder
+  }
+
+  async updateCompanyProfile(cid: string, data: any) { 
+       // Simplified placeholder
+  }
+
+  async uploadSiteLogo(file: File) { 
+      // Mock upload - in prod use Supabase Storage
+      return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+      });
+  }
+
+  async createSite(data: any) {
+       // Simplified placeholder
+  }
+
+  async updateSite(sid: string, data: any) { 
+       // Simplified placeholder
+  }
+  async deleteSite(sid: string) { 
+      await this.client.from('sites').delete().eq('id', sid);
+  }
+
+  async approveEmployee(uan: string, app: boolean, aid: string) { 
+      await this.client.from('employees').update({ status: app ? 'APPROVED' : 'REJECTED' }).eq('uan', uan); 
+  }
+
+  async deleteSalaryRecord(id: string, aid: string) { 
+      await this.client.from('salary_records').delete().eq('id', id);
+  }
+
   async getNotifications(uid: string) { return []; }
 }
 
