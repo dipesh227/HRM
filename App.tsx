@@ -13,8 +13,11 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Sidebar State
-  const [companyLogo, setCompanyLogo] = useState<string | undefined>(undefined); // Company Logo State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
+  
+  // Branding State
+  const [companyName, setCompanyName] = useState<string>('Konark HR');
+  const [companyLogo, setCompanyLogo] = useState<string | undefined>(undefined); 
   
   // Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -27,6 +30,9 @@ const App: React.FC = () => {
   const [dbStatus, setDbStatus] = useState<'CHECKING' | 'CONNECTED' | 'ERROR'>('CHECKING');
   const [dbError, setDbError] = useState('');
   const [dbErrorCode, setDbErrorCode] = useState<string | undefined>(undefined);
+
+  // Default Company ID for the system owner (Used for login screen branding)
+  const DEFAULT_COMPANY_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -54,6 +60,50 @@ const App: React.FC = () => {
       }
   };
 
+  // FETCH GLOBAL BRANDING (Favicon, Title, Logo)
+  useEffect(() => {
+      const fetchGlobalBranding = async () => {
+          try {
+              // Always fetch the "System Owner" company profile first to set the login branding
+              const comp = await dbService.getCompanyDetails(DEFAULT_COMPANY_ID);
+              if (comp) {
+                  // Update Browser Metadata
+                  document.title = comp.metaTitle || comp.name || 'HR Portal';
+                  
+                  // Update Meta Description
+                  let metaDesc = document.querySelector('meta[name="description"]');
+                  if (!metaDesc) {
+                      metaDesc = document.createElement('meta');
+                      metaDesc.setAttribute('name', 'description');
+                      document.head.appendChild(metaDesc);
+                  }
+                  metaDesc.setAttribute('content', comp.metaDescription || 'HR Management System');
+
+                  // Update Favicon
+                  if (comp.faviconUrl) {
+                      let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+                      if (!link) {
+                          link = document.createElement('link');
+                          link.rel = 'icon';
+                          document.getElementsByTagName('head')[0].appendChild(link);
+                      }
+                      link.href = comp.faviconUrl;
+                  }
+
+                  // Update State
+                  setCompanyName(comp.name);
+                  setCompanyLogo(comp.logoUrl);
+              }
+          } catch (e) {
+              console.error("Failed to load branding", e);
+          }
+      };
+      
+      if (dbStatus === 'CONNECTED') {
+          fetchGlobalBranding();
+      }
+  }, [dbStatus]);
+
   useEffect(() => {
     checkDb();
   }, []);
@@ -70,28 +120,11 @@ const App: React.FC = () => {
             }
         };
 
-        // Fetch Company Details (Logo)
-        const fetchCompanyLogo = async () => {
-            if (user.companyId) {
-                try {
-                    const comp = await dbService.getCompanyDetails(user.companyId);
-                    if (comp?.logoUrl) {
-                        setCompanyLogo(comp.logoUrl);
-                    }
-                } catch (e) {
-                    console.error("Failed to fetch company logo", e);
-                }
-            }
-        };
-
         fetchNotifications();
-        fetchCompanyLogo();
-        
         const interval = setInterval(fetchNotifications, 3000);
         return () => clearInterval(interval);
     } else {
         setNotifications([]);
-        setCompanyLogo(undefined);
     }
   }, [user]);
 
@@ -99,7 +132,7 @@ const App: React.FC = () => {
     setUser(null);
     setShowNotifications(false);
     setIsSidebarOpen(false);
-    setCompanyLogo(undefined);
+    // Note: We don't reset companyLogo here so the login screen stays branded
   };
 
   if (dbStatus === 'CHECKING') {
@@ -107,7 +140,7 @@ const App: React.FC = () => {
           <div className="min-h-[100dvh] bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
               <div className="bg-white dark:bg-slate-900 p-8 rounded-xl shadow-lg flex flex-col items-center gap-4">
                   <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                  <p className="text-slate-600 dark:text-slate-300 font-medium">Connecting to Database...</p>
+                  <p className="text-slate-600 dark:text-slate-300 font-medium">Loading System...</p>
               </div>
           </div>
       );
@@ -128,7 +161,7 @@ const App: React.FC = () => {
                   {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
                 </button>
              </div>
-             <Login onLogin={setUser} />
+             <Login onLogin={setUser} branding={{ name: companyName, logoUrl: companyLogo }} />
         </div>
     );
   }
@@ -144,11 +177,11 @@ const App: React.FC = () => {
         showNotifications={showNotifications}
         setShowNotifications={setShowNotifications}
         onMenuClick={() => setIsSidebarOpen(true)}
-        companyLogo={companyLogo} // Pass the fetched logo
+        companyLogo={companyLogo} 
+        companyName={companyName} // Pass name to navbar
       />
 
       <div className="flex-1 overflow-y-auto relative bg-slate-100 dark:bg-slate-950 overscroll-none">
-        {/* Dashboards now receive sidebar props to manage navigation state */}
         {user.role === UserRole.HR && (
             <HRDashboard 
                 user={user} 

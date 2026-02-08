@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, Notification } from '../../types';
-import { LogOut, Bell, Moon, Sun, Menu } from 'lucide-react';
+import { LogOut, Bell, Moon, Sun, Menu, ShieldCheck } from 'lucide-react';
 
 interface NavbarProps {
   user: User;
@@ -11,11 +11,12 @@ interface NavbarProps {
   showNotifications: boolean;
   setShowNotifications: (show: boolean) => void;
   onMenuClick: () => void;
-  companyLogo?: string; // NEW PROP
+  companyLogo?: string;
+  companyName?: string;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
-  user, theme, toggleTheme, onLogout, notifications, showNotifications, setShowNotifications, onMenuClick, companyLogo
+  user, theme, toggleTheme, onLogout, notifications, showNotifications, setShowNotifications, onMenuClick, companyLogo, companyName = 'HR Portal'
 }) => {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -46,15 +47,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                         />
                     ) : (
                         <div className="relative bg-gradient-to-tr from-ios-blue to-blue-600 h-9 w-9 md:h-11 md:w-11 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold text-base md:text-lg shadow-lg shadow-blue-500/20 transform group-hover:scale-105 transition-transform duration-300">
-                            KE
+                            {companyName.substring(0, 2).toUpperCase()}
                         </div>
                     )}
                 </div>
                 <div className="flex flex-col min-w-0 justify-center">
-                    <span className="font-bold text-base md:text-lg text-slate-900 dark:text-white tracking-tight leading-none truncate block">Konark HR</span>
-                    <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-widest group-hover:text-ios-blue transition-colors truncate block mt-0.5 md:mt-1">
-                        {getRoleLabel(user.role)}
-                    </span>
+                    <span className="font-bold text-base md:text-lg text-slate-900 dark:text-white tracking-tight leading-none truncate block">{companyName}</span>
+                    <div className="flex items-center gap-1.5 mt-0.5 md:mt-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-widest group-hover:text-ios-blue transition-colors truncate block">
+                            {getRoleLabel(user.role)}
+                        </span>
+                        {/* Security Indicator */}
+                        <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-green-50 dark:bg-green-900/30 border border-green-100 dark:border-green-900/50">
+                            <ShieldCheck className="w-2.5 h-2.5 text-green-600 dark:text-green-400" />
+                            <span className="text-[9px] font-bold text-green-700 dark:text-green-400 uppercase">Secure</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 

@@ -91,8 +91,8 @@ const EmployeeView: React.FC<Props> = ({ user, isSidebarOpen, onSidebarClose, on
           />
       )}
 
-       {/* Mobile Header Title */}
-       <div className="md:hidden px-4 py-3 bg-white/90 dark:bg-black/80 backdrop-blur border-b border-slate-100 dark:border-white/10 sticky top-16 z-30 flex items-center justify-between">
+       {/* Mobile Header Title - Fixed: Removed sticky positioning to prevent overlap */}
+       <div className="md:hidden px-4 py-3 bg-white dark:bg-black border-b border-slate-100 dark:border-white/10 flex items-center justify-between">
             <h2 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
                 {React.createElement(tabs.find(t => t.id === activeTab)?.icon || Activity, { className: "w-5 h-5 text-ios-blue" })}
                 {tabs.find(t => t.id === activeTab)?.label}

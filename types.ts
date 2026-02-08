@@ -38,11 +38,15 @@ export interface Company {
   clientId: string;
   name: string;
   logoUrl: string;
-  signatureUrl?: string; // New Field
-  stampUrl?: string;     // New Field
+  signatureUrl?: string; 
+  stampUrl?: string;     
   email?: string;
   mobile?: string;
   address?: string;
+  // Portal Branding
+  faviconUrl?: string;
+  metaTitle?: string;
+  metaDescription?: string;
 }
 
 export interface Site {
@@ -76,24 +80,40 @@ export interface User {
 export interface Employee {
   uan: string; // Primary Key (12-digit)
   name: string;
-  role: string; // Changed from EmployeeRole enum to string to support dynamic roles
+  role: string; // Dynamic Role
   companyId: string;
   siteId: string;
   status: EmployeeStatus;
   addedBy: string; // UAN or UUID
   joinedDate: string;
-  // Personal Details
+  
+  // Contact
   profilePhotoUrl?: string;
   personalEmail?: string;
   mobile?: string;
   address?: string;
+
+  // Compliance
+  esicNo?: string;
+  pfNo?: string;
+
+  // Banking
+  bankAccountNo?: string;
+  ifscCode?: string;
+  bankName?: string;
+
+  // Documents (URLs)
+  aadhaarFrontUrl?: string;
+  aadhaarBackUrl?: string;
+  panUrl?: string;
+  bankPassbookUrl?: string;
 }
 
 // Raw Record in DB
 export interface SalaryRecord {
   id: string;
-  employeeUan: string; // Foreign Key to Employee UAN
-  siteId: string; // Foreign Key to Site
+  employeeUan: string; 
+  siteId: string; 
   month: number;
   year: number;
   basic: number;
@@ -105,7 +125,6 @@ export interface SalaryRecord {
   isLocked: boolean;
 }
 
-// Computed View from DB (Kept for backward compat if needed, but logic moved to Record)
 export interface SalaryView extends SalaryRecord {
   // netSalary is now in SalaryRecord
 }

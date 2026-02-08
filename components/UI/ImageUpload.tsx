@@ -82,7 +82,12 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({ label, currentImage, o
 
         {preview ? (
           <>
-            <img src={preview} alt="Preview" className="w-full h-full object-contain p-2" />
+            <img 
+              src={preview} 
+              alt="Preview" 
+              loading="lazy" 
+              className="w-full h-full object-contain p-2" 
+            />
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
                 <p className="text-white font-medium text-sm">Click to Change</p>
             </div>
