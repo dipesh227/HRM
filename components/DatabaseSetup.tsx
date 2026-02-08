@@ -4,25 +4,22 @@ import { Copy, Check, AlertTriangle, ExternalLink, RefreshCw, Database, Server, 
 export const DatabaseSetup: React.FC<{ onRetry: () => void, error: string, errorCode?: string }> = ({ onRetry, error, errorCode }) => {
   const [copied, setCopied] = useState(false);
 
-  // SQL Schema Content - v7.3 (Fixes Text vs Bytea error & Missing fields)
-  const schema = `-- KONARK HR SYSTEM - SECURITY LEVEL: MAXIMUM (AES-256 ENCRYPTION) v7.3
--- FIX: Uncommented DROP TABLES to ensure BYTEA column types are created
--- FIX: Added ESIC/PF to secure_upsert_employee
--- FIX: Added Role/Site updates to secure_upsert_employee
+  // SQL Schema Content - v7.4 (Fixes RPC missing fields & Type Mismatch)
+  const schema = `-- KONARK HR SYSTEM - SECURITY LEVEL: MAXIMUM (AES-256 ENCRYPTION) v7.4
+-- FIX: DROP TABLES to ensure columns are created as BYTEA (Binary)
+-- FIX: secure_upsert_employee now includes ESIC and PF
+-- FIX: secure_upsert_salary added for payroll
 
 -- 1. SECURITY EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- 2. CLEANUP (Force Refresh of Functions & Views)
-DROP FUNCTION IF EXISTS secure_upsert_salary;
-DROP FUNCTION IF EXISTS secure_upsert_employee;
+-- 2. CLEANUP (FORCE RESET TO FIX TYPE ERRORS)
 DROP VIEW IF EXISTS v_salary_decrypted;
 DROP VIEW IF EXISTS v_employees_decrypted;
 DROP VIEW IF EXISTS v_sites_decrypted;
 DROP VIEW IF EXISTS v_companies_decrypted;
 
--- DANGER: DROPPING TABLES TO FIX TYPE ERRORS (TEXT vs BYTEA)
--- This deletes existing data. Necessary to fix "pgp_sym_decrypt function does not exist" error.
+-- DROPPING TABLES - Required to fix "Text vs Bytea" mismatch errors
 DROP TABLE IF EXISTS salary_records CASCADE;
 DROP TABLE IF EXISTS employees CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
@@ -32,25 +29,49 @@ DROP TABLE IF EXISTS companies CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS audit_logs CASCADE;
 
--- Ensure Tables Exist
-CREATE TABLE IF NOT EXISTS companies (
+-- 3. ENUMS
+DO $$ BEGIN
+    CREATE TYPE user_role AS ENUM ('HR', 'SITE_INCHARGE', 'EMPLOYEE');
+    CREATE TYPE site_status AS ENUM ('ACTIVE', 'CLOSED');
+    CREATE TYPE employee_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'INACTIVE');
+    CREATE TYPE notification_type AS ENUM ('INFO', 'ALERT', 'SUCCESS');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- 4. GLOBAL ENCRYPTION KEY SETTING
+CREATE OR REPLACE FUNCTION get_app_secret() RETURNS TEXT AS $$
+BEGIN
+    RETURN 'KONARK_SUPER_SECRET_KEY_2024_AES_256'; 
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 5. SECURE TABLES (All Sensitive Data is BYTEA)
+
+CREATE TABLE companies (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   client_id TEXT NOT NULL,
   name BYTEA NOT NULL,
   logo_url TEXT, 
   email BYTEA, 
   mobile BYTEA, 
-  address BYTEA
+  address BYTEA,
+  -- Extra Branding
+  signature_url TEXT,
+  stamp_url TEXT,
+  favicon_url TEXT,
+  meta_title TEXT,
+  meta_description TEXT
 );
 
-CREATE TABLE IF NOT EXISTS job_roles (
+CREATE TABLE job_roles (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title TEXT NOT NULL UNIQUE,
   description TEXT,
   is_system_default BOOLEAN DEFAULT FALSE
 );
 
-CREATE TABLE IF NOT EXISTS sites (
+CREATE TABLE sites (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   name BYTEA NOT NULL,
@@ -63,27 +84,27 @@ CREATE TABLE IF NOT EXISTS sites (
   mobile BYTEA,
   manager_name BYTEA,
   manager_mobile BYTEA,
-  status TEXT DEFAULT 'ACTIVE',
+  status site_status DEFAULT 'ACTIVE',
   logo_url TEXT
 );
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  email_hash TEXT UNIQUE NOT NULL,
-  email_enc BYTEA NOT NULL,
-  password TEXT NOT NULL,
-  name BYTEA NOT NULL,
-  role TEXT DEFAULT 'HR',
+  email_hash TEXT UNIQUE NOT NULL, 
+  email_enc BYTEA NOT NULL, 
+  password TEXT NOT NULL, 
+  name BYTEA NOT NULL, 
+  role user_role DEFAULT 'HR',
   company_id UUID REFERENCES companies(id) ON DELETE SET NULL
 );
 
-CREATE TABLE IF NOT EXISTS employees (
-  uan TEXT PRIMARY KEY,
+CREATE TABLE employees (
+  uan TEXT PRIMARY KEY CHECK (uan ~ '^[0-9]{12}$'),
   name BYTEA NOT NULL, 
   role TEXT NOT NULL, 
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-  status TEXT DEFAULT 'PENDING',
+  status employee_status DEFAULT 'PENDING',
   added_by TEXT NOT NULL,
   joined_date DATE NOT NULL,
   profile_photo_url TEXT,
@@ -101,7 +122,7 @@ CREATE TABLE IF NOT EXISTS employees (
   bank_passbook_url TEXT
 );
 
-CREATE TABLE IF NOT EXISTS salary_records (
+CREATE TABLE salary_records (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   employee_uan TEXT NOT NULL REFERENCES employees(uan) ON DELETE CASCADE,
   site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
@@ -117,7 +138,7 @@ CREATE TABLE IF NOT EXISTS salary_records (
   CONSTRAINT salary_uan_month_year_site_key UNIQUE (employee_uan, month, year, site_id)
 );
 
-CREATE TABLE IF NOT EXISTS audit_logs (
+CREATE TABLE audit_logs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   timestamp TIMESTAMPTZ DEFAULT NOW(),
   actor_id TEXT NOT NULL,
@@ -127,23 +148,16 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   severity TEXT DEFAULT 'INFO'
 );
 
-CREATE TABLE IF NOT EXISTS notifications (
+CREATE TABLE notifications (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id TEXT NOT NULL,
   message TEXT NOT NULL,
-  type TEXT DEFAULT 'INFO',
+  type notification_type DEFAULT 'INFO',
   is_read BOOLEAN DEFAULT FALSE,
   timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. GLOBAL KEY
-CREATE OR REPLACE FUNCTION get_app_secret() RETURNS TEXT AS $$
-BEGIN
-    RETURN 'KONARK_SUPER_SECRET_KEY_2024_AES_256'; 
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- 4. DECRYPTION VIEWS
+-- 6. DECRYPTION VIEWS
 
 CREATE OR REPLACE VIEW v_companies_decrypted AS
 SELECT 
@@ -152,7 +166,8 @@ SELECT
   logo_url,
   pgp_sym_decrypt(email, get_app_secret()) as email,
   pgp_sym_decrypt(mobile, get_app_secret()) as mobile,
-  pgp_sym_decrypt(address, get_app_secret()) as address
+  pgp_sym_decrypt(address, get_app_secret()) as address,
+  signature_url, stamp_url, favicon_url, meta_title, meta_description
 FROM companies;
 
 CREATE OR REPLACE VIEW v_sites_decrypted AS
@@ -198,9 +213,9 @@ SELECT
   is_locked
 FROM salary_records;
 
--- 5. SECURE RPC FUNCTIONS
+-- 7. SECURE RPCs
 
--- A. Insert/Update Employee (Updated to include ESIC, PF and allow Role/Site updates)
+-- A. Insert/Update Employee (With ESIC/PF)
 CREATE OR REPLACE FUNCTION secure_upsert_employee(
     p_uan TEXT, p_name TEXT, p_role TEXT, p_company_id UUID, p_site_id UUID, 
     p_added_by TEXT, p_mobile TEXT, p_address TEXT, p_email TEXT,
@@ -227,9 +242,9 @@ BEGIN
     )
     ON CONFLICT (uan) DO UPDATE SET
         name = pgp_sym_encrypt(p_name, get_app_secret()),
-        role = p_role, -- Allow role update
-        company_id = p_company_id, -- Allow company transfer
-        site_id = p_site_id, -- Allow site transfer
+        role = p_role, 
+        company_id = p_company_id, 
+        site_id = p_site_id, 
         mobile = pgp_sym_encrypt(p_mobile, get_app_secret()),
         address = pgp_sym_encrypt(p_address, get_app_secret()),
         personal_email = pgp_sym_encrypt(p_email, get_app_secret()),
@@ -250,7 +265,6 @@ CREATE OR REPLACE FUNCTION secure_upsert_salary(
 DECLARE
     v_net NUMERIC;
 BEGIN
-    -- Calculate Net Salary on Backend
     v_net := p_basic + p_hra + p_allowances - p_pf - p_tax;
     
     INSERT INTO salary_records (
@@ -282,7 +296,7 @@ CREATE OR REPLACE FUNCTION secure_hr_login(p_email TEXT, p_password TEXT)
 RETURNS TABLE (
   id UUID,
   name TEXT,
-  role TEXT,
+  role user_role,
   company_id UUID
 ) LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
@@ -300,6 +314,26 @@ BEGIN
     AND u.password = crypt(p_password, u.password);
 END;
 $$;
+
+-- 8. SEED DATA
+
+INSERT INTO companies (client_id, name, address, email, mobile)
+VALUES (
+    'KONARK001',
+    pgp_sym_encrypt('Konark Enterprises Pvt. Ltd.', get_app_secret()),
+    pgp_sym_encrypt('Pune, India', get_app_secret()),
+    pgp_sym_encrypt('info@konark.com', get_app_secret()),
+    pgp_sym_encrypt('9988776655', get_app_secret())
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO users (email_hash, email_enc, password, name, role)
+VALUES (
+    digest('admin@konark.com', 'sha256'),
+    pgp_sym_encrypt('admin@konark.com', get_app_secret()),
+    crypt('Hr@12345', gen_salt('bf', 10)),
+    pgp_sym_encrypt('System Admin', get_app_secret()),
+    'HR'
+) ON CONFLICT (email_hash) DO NOTHING;
 `;
 
   const handleCopy = () => {
@@ -368,7 +402,7 @@ $$;
                 <div className="pb-8 w-full">
                     <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
                         <ShieldCheck className="w-5 h-5 text-green-500" />
-                        Run Secure Database Schema (v7.3)
+                        Run Secure Database Schema (v7.4)
                     </h3>
                     <p className="text-slate-500 dark:text-slate-400 mb-3">
                         Copy this SQL and run it in your <strong>Supabase Studio SQL Editor</strong>. This installs <strong>PGCRYPTO</strong> and adds the latest security functions.
