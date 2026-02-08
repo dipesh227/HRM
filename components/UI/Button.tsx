@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, LucideIcon } from 'lucide-react';
+import { Loader2, type LucideIcon } from 'lucide-react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'outline' | 'ghost' | 'glass';

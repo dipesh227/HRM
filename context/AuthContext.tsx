@@ -13,13 +13,33 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    // Attempt to hydrate from localStorage on boot
-    const stored = localStorage.getItem('konark_user');
-    return stored ? JSON.parse(stored) : null;
-  });
-  
-  const [loading, setLoading] = useState<boolean>(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    // HARD RESET INITIALIZATION
+    const initAuth = () => {
+        try {
+            const stored = localStorage.getItem('konark_user');
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                // Basic validation of stored session
+                if (parsed && parsed.id && parsed.role && parsed.name) {
+                    setUser(parsed);
+                } else {
+                    console.warn("Invalid session detected. Clearing.");
+                    localStorage.removeItem('konark_user');
+                }
+            }
+        } catch (e) {
+            console.error("Session corruption detected. Performing hard reset.", e);
+            localStorage.clear(); // Nuclear option to fix "white screen" issues
+        } finally {
+            setLoading(false);
+        }
+    };
+    initAuth();
+  }, []);
 
   const login = (newUser: User) => {
     setUser(newUser);
@@ -28,22 +48,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('konark_user');
+    localStorage.clear(); // Ensure complete cleanup
+    window.location.href = '/login';
   };
 
   const refreshProfile = async () => {
     if (!user) return;
     try {
-        // Fetch fresh profile data if needed
         if (user.role === UserRole.HR) {
-            // HR profile refresh logic would go here if we had a direct endpoint
+            // HR refresh logic placeholder
         } else {
             const fresh = await dbService.getEmployeeByUAN(user.id);
             if (fresh) {
                 const updatedUser: User = {
                     ...user,
                     name: fresh.name,
-                    // keep other session info
+                    companyId: fresh.companyId,
+                    siteId: fresh.siteId
                 };
                 login(updatedUser);
             }
@@ -55,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, refreshProfile }}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

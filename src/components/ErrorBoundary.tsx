@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -24,12 +24,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  private handleHardReset = () => {
-      localStorage.clear();
-      sessionStorage.clear();
-      window.location.href = '/';
-  };
-
   public render() {
     if (this.state.hasError) {
       return (
@@ -47,21 +41,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 </p>
             </div>
 
-            <div className="space-y-3">
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="w-full bg-slate-900 text-white py-3 rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 font-medium shadow-lg shadow-slate-200"
-                >
-                  <RefreshCw className="w-4 h-4" /> Reload Application
-                </button>
-                
-                <button 
-                  onClick={this.handleHardReset}
-                  className="w-full bg-white text-red-600 border border-red-200 py-3 rounded-xl hover:bg-red-50 transition-colors flex items-center justify-center gap-2 font-medium"
-                >
-                  <Trash2 className="w-4 h-4" /> Hard Reset (Clear Data)
-                </button>
-            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full bg-slate-900 text-white py-3 rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 font-medium shadow-lg shadow-slate-200"
+            >
+              <RefreshCw className="w-4 h-4" /> Reload Application
+            </button>
           </div>
         </div>
       );

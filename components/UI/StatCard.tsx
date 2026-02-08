@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card } from './Card';
-import { LucideIcon } from 'lucide-react';
+import { type LucideIcon } from 'lucide-react';
 
 export type StatColor = 'blue' | 'orange' | 'green' | 'purple' | 'red';
 

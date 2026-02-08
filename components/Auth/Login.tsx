@@ -1,39 +1,47 @@
-import React, { useState } from 'react';
-import { UserRole } from '../../types';
-import { dbService } from '../../services/mockDb';
-import { useAuth } from '../../context/AuthContext';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserCircle, Lock, Building, Users, BadgeCheck, HardHat, Briefcase, ArrowRight, ShieldCheck } from 'lucide-react';
-import { InputField } from '../UI/InputField';
+import { useAuth } from '../../context/AuthContext';
+import { dbService } from '../../services/mockDb';
+import { UserRole } from '../../types';
 import { Button } from '../UI/Button';
+import { InputField } from '../UI/InputField';
+import { 
+  Building2, Lock, User, ShieldCheck, ArrowRight, 
+  Briefcase, Users, LayoutDashboard, Loader2 
+} from 'lucide-react';
 
-interface LoginProps {
-    // Props are optional now as we use context, but keeping for compatibility if reused
-    branding?: { name: string; logoUrl?: string; };
-}
-
-const Login: React.FC<LoginProps> = ({ branding }) => {
-  const { login } = useAuth();
+const Login = () => {
   const navigate = useNavigate();
-  
-  const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.HR);
-  const [formData, setFormData] = useState({ email: '', password: '', uan: '' });
-  const [error, setError] = useState('');
+  const { login, user } = useAuth();
   const [loading, setLoading] = useState(false);
-
-  // Local state for branding if not passed props (simplified for this view)
-  const [localBranding, setLocalBranding] = useState(branding || { name: 'Konark HR', logoUrl: undefined });
+  const [roleMode, setRoleMode] = useState<'HR' | 'STAFF'>('HR');
+  const [error, setError] = useState('');
   
-  // Fetch branding on mount if not provided
-  React.useEffect(() => {
-     if(!branding) {
-         dbService.getCompanyDetails('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11').then(comp => {
-             if(comp) setLocalBranding({ name: comp.name, logoUrl: comp.logoUrl });
-         });
-     }
-  }, [branding]);
+  // Form State
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [uan, setUan] = useState('');
+  
+  // Branding State
+  const [companyName, setCompanyName] = useState('Konark HR');
 
-  const updateForm = (key: string, value: string) => setFormData(prev => ({ ...prev, [key]: value }));
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+        navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
+
+  // Fetch Company Name on Mount
+  useEffect(() => {
+     const init = async () => {
+         try {
+             const c = await dbService.getCompanyDetails('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11');
+             if (c) setCompanyName(c.name);
+         } catch(e) {}
+     };
+     init();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,160 +49,138 @@ const Login: React.FC<LoginProps> = ({ branding }) => {
     setLoading(true);
 
     try {
-        let user;
-        if (selectedRole === UserRole.HR) {
-            user = await dbService.loginHR(formData.email, formData.password);
+        let authUser;
+        
+        if (roleMode === 'HR') {
+            if (!email || !password) throw new Error("Please enter email and password.");
+            authUser = await dbService.loginHR(email, password);
         } else {
-            user = await dbService.loginStaff(formData.uan);
+            if (!uan || uan.length !== 12) throw new Error("Please enter a valid 12-digit UAN.");
+            authUser = await dbService.loginStaff(uan);
         }
-        
-        login(user);
-        
-        // Navigation is handled by the ProtectedRoute / DashboardRedirect in App.tsx
-        // but we can explicitly push to /
-        navigate('/', { replace: true });
-        
+
+        if (authUser) {
+            login(authUser);
+            // Navigation handled by App.tsx useEffect or protected route
+        }
     } catch (err: any) {
-        setError(err.message || "Authentication failed.");
+        console.error("Login Error:", err);
+        setError(err.message || "Authentication failed. Please try again.");
         setLoading(false);
     }
   };
 
-  const roles = [
-    { id: UserRole.HR, label: 'HR Admin', icon: Lock },
-    { id: UserRole.SITE_INCHARGE, label: 'Manager', icon: Briefcase },
-    { id: UserRole.EMPLOYEE, label: 'Staff', icon: HardHat },
-  ];
-
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 md:p-6 relative overflow-hidden font-sans">
-      {/* Dynamic Background */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-blue-900/40 via-slate-950 to-slate-950 z-0"></div>
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[100px] animate-pulse"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[100px]"></div>
-
-      <div className="w-full max-w-[440px] relative z-10 perspective-1000">
-        <div className="bg-white/10 dark:bg-black/40 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl border border-white/10 overflow-hidden animate-slide-up">
-          
-          {/* Header */}
-          <div className="pt-10 pb-8 px-8 text-center relative">
-            {localBranding.logoUrl ? (
-                <div className="inline-flex h-20 w-20 rounded-2xl items-center justify-center mb-6 shadow-glow shadow-blue-500/30 ring-4 ring-white/10 overflow-hidden bg-white">
-                    <img src={localBranding.logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+      
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
+        
+        {/* Header Branding */}
+        <div className="bg-blue-600 p-8 text-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+            <div className="relative z-10 flex flex-col items-center">
+                <div className="h-16 w-16 bg-white rounded-2xl flex items-center justify-center shadow-lg mb-4">
+                    <Building2 className="w-8 h-8 text-blue-600" />
                 </div>
-            ) : (
-                <div className="inline-flex h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl items-center justify-center mb-6 shadow-glow shadow-blue-500/30 ring-4 ring-white/10">
-                   <span className="text-2xl font-bold text-white tracking-tighter">{localBranding.name ? localBranding.name.substring(0,2).toUpperCase() : 'KE'}</span>
-                </div>
-            )}
-            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Welcome Back</h1>
-            <p className="text-slate-400 font-medium">Sign in to {localBranding.name || 'Portal'}</p>
-            
-            <div className="inline-flex items-center gap-1.5 mt-4 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] font-bold uppercase tracking-wider">
-                <ShieldCheck className="w-3 h-3" /> End-to-End Encrypted
+                <h1 className="text-2xl font-bold text-white tracking-tight">{companyName}</h1>
+                <p className="text-blue-100 text-sm font-medium mt-1">Secure Management Portal</p>
             </div>
-          </div>
-          
-          <div className="px-8 pb-10">
-            {/* Role Switcher */}
-            <div className="grid grid-cols-3 gap-2 p-1.5 bg-black/20 rounded-2xl mb-8 border border-white/5">
-              {roles.map((role) => {
-                  const Icon = role.icon;
-                  const isActive = selectedRole === role.id;
-                  return (
-                      <button 
-                          key={role.id}
-                          type="button"
-                          onClick={() => { setSelectedRole(role.id); setError(''); }}
-                          className={`
-                            flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl text-[11px] font-bold uppercase tracking-wide transition-all duration-300
-                            ${isActive ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}
-                          `}
-                      >
-                          <Icon className={`w-5 h-5 ${isActive ? 'scale-110' : 'scale-100'} transition-transform`} /> 
-                          {role.label}
-                      </button>
-                  );
-              })}
-            </div>
+        </div>
 
+        {/* Role Toggles */}
+        <div className="flex p-2 gap-2 bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800">
+            <button 
+                type="button"
+                onClick={() => { setRoleMode('HR'); setError(''); }}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${roleMode === 'HR' ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+                <Lock className="w-4 h-4" /> HR Admin
+            </button>
+            <button 
+                type="button"
+                onClick={() => { setRoleMode('STAFF'); setError(''); }}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${roleMode === 'STAFF' ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+                <Users className="w-4 h-4" /> Staff / Site
+            </button>
+        </div>
+
+        {/* Login Form */}
+        <div className="p-8">
             <form onSubmit={handleLogin} className="space-y-6">
-              {selectedRole === UserRole.HR ? (
-                  <div className="space-y-5">
-                      <InputField 
-                          label="Work Email" 
-                          icon={UserCircle} 
-                          type="email" 
-                          required 
-                          placeholder="admin@example.com"
-                          value={formData.email}
-                          onChange={e => updateForm('email', e.target.value)}
-                          className="text-white"
-                          autoComplete="username"
-                      />
-                       <InputField 
-                          label="Password" 
-                          icon={Lock} 
-                          type="password" 
-                          required 
-                          placeholder="••••••••"
-                          value={formData.password}
-                          onChange={e => updateForm('password', e.target.value)}
-                          className="text-white"
-                          autoComplete="current-password"
-                      />
-                  </div>
-              ) : (
-                  <div className="space-y-5 animate-fade-in">
-                       <InputField 
-                          label={selectedRole === UserRole.SITE_INCHARGE ? 'Manager UAN' : 'Employee UAN'} 
-                          icon={BadgeCheck} 
-                          type="tel"
-                          required 
-                          pattern="\d*"
-                          maxLength={12}
-                          placeholder="1000 0000 0001"
-                          value={formData.uan}
-                          onChange={e => updateForm('uan', e.target.value)}
-                          className="text-white font-mono tracking-widest text-lg"
-                          autoComplete="off"
-                      />
-                      <p className="text-xs text-slate-400/80 font-medium text-center bg-white/5 py-3 rounded-xl border border-white/5">
-                          {selectedRole === UserRole.SITE_INCHARGE 
-                              ? "Please enter your 12-digit Manager ID" 
-                              : "Enter your 12-digit UAN from your ID card"}
-                      </p>
-                  </div>
-              )}
+                
+                {roleMode === 'HR' ? (
+                    <div className="space-y-4 animate-fade-in">
+                        <InputField 
+                            label="Corporate Email"
+                            type="email"
+                            placeholder="admin@company.com"
+                            icon={User}
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                        />
+                        <InputField 
+                            label="Password"
+                            type="password"
+                            placeholder="••••••••"
+                            icon={Lock}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                        />
+                    </div>
+                ) : (
+                    <div className="space-y-4 animate-fade-in">
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl flex items-start gap-3">
+                            <Briefcase className="w-5 h-5 text-blue-600 mt-0.5" />
+                            <div>
+                                <h4 className="font-bold text-sm text-blue-900 dark:text-blue-300">Staff Access</h4>
+                                <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
+                                    Enter your 12-digit UAN number found on your ID card or payslip.
+                                </p>
+                            </div>
+                        </div>
+                        <InputField 
+                            label="Universal Account Number (UAN)"
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={12}
+                            placeholder="0000 0000 0000"
+                            icon={ShieldCheck}
+                            value={uan}
+                            onChange={(e) => setUan(e.target.value.replace(/\D/g, ''))}
+                            className="font-mono tracking-widest text-lg"
+                            required
+                        />
+                    </div>
+                )}
 
-              {error && (
-                  <div className="flex items-center gap-3 text-red-200 text-sm font-medium bg-red-500/20 p-4 rounded-2xl border border-red-500/20 animate-slide-up">
-                      <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse shrink-0" />
-                      <span>{error}</span>
-                  </div>
-              )}
-              
-              <Button 
-                type="submit" 
-                variant="primary" 
-                fullWidth 
-                size="lg" 
-                isLoading={loading}
-                className="mt-4 shadow-glow"
-              >
-                  {selectedRole === UserRole.HR ? 'Verify & Login' : 'Access Dashboard'}
-                  {!loading && <ArrowRight className="w-5 h-5 ml-1" />}
-              </Button>
+                {error && (
+                    <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm font-medium rounded-xl flex items-center gap-2 animate-slide-up">
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                        {error}
+                    </div>
+                )}
+
+                <Button 
+                    type="submit" 
+                    variant="primary" 
+                    fullWidth 
+                    size="lg" 
+                    isLoading={loading}
+                    className="shadow-xl shadow-blue-500/20"
+                >
+                    {loading ? 'Authenticating...' : 'Secure Login'}
+                    {!loading && <ArrowRight className="w-5 h-5 ml-2" />}
+                </Button>
             </form>
-          </div>
-          
-          <div className="px-8 py-5 bg-black/30 border-t border-white/5 text-center backdrop-blur-md">
-               <div className="inline-flex items-center gap-6 text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-                  <span className="flex items-center gap-1.5"><Building className="h-3 w-3" /> {localBranding.name}</span>
-                  <span className="w-1 h-1 rounded-full bg-slate-700"></span>
-                  <span className="flex items-center gap-1.5"><Users className="h-3 w-3" /> Secure Access</span>
-               </div>
-          </div>
+
+            <div className="mt-8 text-center">
+                <p className="text-xs text-slate-400 font-medium flex items-center justify-center gap-2">
+                    <ShieldCheck className="w-3 h-3" /> End-to-End Encrypted Session
+                </p>
+            </div>
         </div>
       </div>
     </div>

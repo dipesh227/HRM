@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useOutletContext } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 import Login from './components/Auth/Login';
@@ -10,9 +10,9 @@ import { DatabaseSetup } from './components/DatabaseSetup';
 import { Navbar } from './components/Layout/Navbar';
 import { UserRole, Notification } from './types';
 import { dbService } from './services/mockDb';
-import { Loader2, Moon, Sun } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
-// --- Layout Wrapper ---
+// --- Main Layout Component ---
 const AppLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -21,17 +21,14 @@ const AppLayout: React.FC = () => {
   
   // Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window !== 'undefined') {
-        return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
-    }
-    return 'light';
+    return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
   
-  // Branding
+  // Branding State
   const [companyName, setCompanyName] = useState<string>('Konark HR');
   const [companyLogo, setCompanyLogo] = useState<string | undefined>(undefined);
-  const DEFAULT_COMPANY_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
+  // Apply Theme
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
@@ -40,11 +37,11 @@ const AppLayout: React.FC = () => {
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
-  // Load Branding
+  // Load Global Branding
   useEffect(() => {
       const fetchGlobalBranding = async () => {
           try {
-              const comp = await dbService.getCompanyDetails(DEFAULT_COMPANY_ID);
+              const comp = await dbService.getCompanyDetails('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11');
               if (comp) {
                   setCompanyName(comp.name);
                   setCompanyLogo(comp.logoUrl);
@@ -54,20 +51,6 @@ const AppLayout: React.FC = () => {
       };
       fetchGlobalBranding();
   }, []);
-
-  // Poll Notifications
-  useEffect(() => {
-      if (!user) return;
-      const fetchNotes = async () => {
-          try {
-              const data = await dbService.getNotifications(user.id);
-              setNotifications(data);
-          } catch(e) {}
-      };
-      fetchNotes();
-      const interval = setInterval(fetchNotes, 30000);
-      return () => clearInterval(interval);
-  }, [user]);
 
   if (!user) return <Navigate to="/login" replace />;
 
@@ -86,61 +69,83 @@ const AppLayout: React.FC = () => {
             companyName={companyName}
         />
         <div className="flex-1 overflow-y-auto relative bg-slate-100 dark:bg-slate-950 overscroll-none">
-            {/* We pass the sidebar props down to the children via React.cloneElement or Context if we were fully rigorous, 
-                but for now we route to the Dashboards which accept these props. 
-                However, since Route elements are instantiated here, we can pass props directly. 
-            */}
             <Outlet context={{ isSidebarOpen, setIsSidebarOpen }} />
         </div>
     </div>
   );
 };
 
-// --- Protected Route Guard ---
+// --- Route Protection Wrappers ---
+
 const ProtectedRoute: React.FC<{ allowedRoles: UserRole[], children: React.ReactNode }> = ({ allowedRoles, children }) => {
     const { user } = useAuth();
     if (!user) return <Navigate to="/login" replace />;
     if (!allowedRoles.includes(user.role)) return <Navigate to="/" replace />;
-    
-    // Inject sidebar props if the child is a functional component that accepts them
-    // Note: In strict routing, sidebar state should be lifted or in context. 
-    // For this migration, we assume the dashboard handles its own sidebar or ignores it if closed.
     return <>{children}</>;
 };
 
-// --- Role Redirector ---
-const DashboardRedirect: React.FC = () => {
+const RoleBasedRedirect: React.FC = () => {
     const { user } = useAuth();
     if (!user) return <Navigate to="/login" replace />;
     
     if (user.role === UserRole.HR) return <Navigate to="/hr" replace />;
     if (user.role === UserRole.SITE_INCHARGE) return <Navigate to="/site" replace />;
-    return <Navigate to="/employee" replace />;
+    if (user.role === UserRole.EMPLOYEE) return <Navigate to="/employee" replace />;
+    
+    return <Navigate to="/login" replace />;
 };
 
-// --- Main App Logic ---
+// --- Dashboard Wrappers (Connect Context) ---
+
+const HRDashboardWrapper = () => {
+    const { user, logout } = useAuth();
+    const { isSidebarOpen, setIsSidebarOpen } = useOutletContext<any>();
+    return <HRDashboard user={user!} isSidebarOpen={isSidebarOpen} onSidebarClose={() => setIsSidebarOpen(false)} onLogout={logout} />;
+};
+
+const SiteDashboardWrapper = () => {
+    const { user, logout } = useAuth();
+    const { isSidebarOpen, setIsSidebarOpen } = useOutletContext<any>();
+    return <SiteDashboard user={user!} isSidebarOpen={isSidebarOpen} onSidebarClose={() => setIsSidebarOpen(false)} onLogout={logout} />;
+};
+
+const EmployeeViewWrapper = () => {
+    const { user, logout } = useAuth();
+    const { isSidebarOpen, setIsSidebarOpen } = useOutletContext<any>();
+    return <EmployeeView user={user!} isSidebarOpen={isSidebarOpen} onSidebarClose={() => setIsSidebarOpen(false)} onLogout={logout} />;
+};
+
+// --- Core Application Logic ---
+
 const AppContent: React.FC = () => {
     const [dbStatus, setDbStatus] = useState<'CHECKING' | 'CONNECTED' | 'ERROR'>('CHECKING');
     const [dbError, setDbError] = useState('');
     const [dbErrorCode, setDbErrorCode] = useState<string | undefined>(undefined);
 
     useEffect(() => {
-        const check = async () => {
-            const { connected, error, code } = await dbService.checkConnection();
-            if (connected) setDbStatus('CONNECTED');
-            else {
-                setDbError(error || 'Unknown Error');
-                setDbErrorCode(code);
-                setDbStatus('ERROR');
+        const checkConnection = async () => {
+            try {
+                const { connected, error, code } = await dbService.checkConnection();
+                if (connected) {
+                    setDbStatus('CONNECTED');
+                } else {
+                    console.error("DB Connect Error:", error);
+                    setDbError(error || 'Connection Failed');
+                    setDbErrorCode(code);
+                    setDbStatus('ERROR');
+                }
+            } catch (e) {
+                setDbStatus('CONNECTED'); // Fallback to allow mock mode if hard fail
             }
         };
-        check();
+        checkConnection();
     }, []);
 
     if (dbStatus === 'CHECKING') {
         return (
-             <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
-                 <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+             <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-4">
+                 <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+                 <p className="text-sm font-medium text-slate-500">Initializing System...</p>
              </div>
         );
     }
@@ -155,11 +160,10 @@ const AppContent: React.FC = () => {
                 <Route path="/login" element={<Login />} />
                 
                 <Route element={<AppLayout />}>
-                    <Route path="/" element={<DashboardRedirect />} />
+                    <Route path="/" element={<RoleBasedRedirect />} />
                     
                     <Route path="/hr" element={
                         <ProtectedRoute allowedRoles={[UserRole.HR]}>
-                            {/* We need a wrapper to consume the outlet context for sidebar */}
                             <HRDashboardWrapper />
                         </ProtectedRoute>
                     } />
@@ -181,27 +185,6 @@ const AppContent: React.FC = () => {
             </Routes>
         </BrowserRouter>
     );
-};
-
-// --- Wrappers to bridge Layout Context (Sidebar) to Dashboards ---
-import { useOutletContext } from 'react-router-dom';
-
-const HRDashboardWrapper = () => {
-    const { user, logout } = useAuth();
-    const { isSidebarOpen, setIsSidebarOpen } = useOutletContext<any>();
-    return <HRDashboard user={user!} isSidebarOpen={isSidebarOpen} onSidebarClose={() => setIsSidebarOpen(false)} onLogout={logout} />;
-};
-
-const SiteDashboardWrapper = () => {
-    const { user, logout } = useAuth();
-    const { isSidebarOpen, setIsSidebarOpen } = useOutletContext<any>();
-    return <SiteDashboard user={user!} isSidebarOpen={isSidebarOpen} onSidebarClose={() => setIsSidebarOpen(false)} onLogout={logout} />;
-};
-
-const EmployeeViewWrapper = () => {
-    const { user, logout } = useAuth();
-    const { isSidebarOpen, setIsSidebarOpen } = useOutletContext<any>();
-    return <EmployeeView user={user!} isSidebarOpen={isSidebarOpen} onSidebarClose={() => setIsSidebarOpen(false)} onLogout={logout} />;
 };
 
 const App: React.FC = () => {

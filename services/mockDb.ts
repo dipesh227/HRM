@@ -6,7 +6,7 @@ import {
 } from '../types';
 
 // ============================================================================
-// CONFIGURATION & SECURITY UTILS
+// CONFIGURATION & UTILS
 // ============================================================================
 
 const getEnv = (key: string) => {
@@ -50,7 +50,7 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY) {
         supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
             auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storage: window.localStorage },
             db: { schema: 'public' },
-            global: { headers: { 'x-application-name': 'konark-hr-secure' } }
+            global: { headers: { 'x-application-name': 'konark-hr-standard' } }
         });
     } catch (e) {
         console.error("Critical: Failed to initialize Supabase client", e);
@@ -60,7 +60,6 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY) {
 export type ConnectionStatus = { connected: boolean; error?: string; code?: string; usingMock?: boolean; };
 
 // --- MOCK DATA STORE (Fallback ONLY) ---
-// This is now purely a fallback if the connection fails.
 const MOCK_DB = {
     companies: [{ id: 'c1', clientId: 'KONARK001', name: 'Konark Enterprises Pvt. Ltd.', logoUrl: 'https://via.placeholder.com/150', email: 'info@konark.com', mobile: '9988776655', address: 'Pune, India' }] as Company[],
     sites: [{ id: 's1', companyId: 'c1', name: 'Konark Site - Pune HQ', siteCode: 'KE-PUN-01', address: 'Plot 45, Infotech Park', city: 'Pune', state: 'MH', status: SiteStatus.ACTIVE }] as Site[],
@@ -81,7 +80,8 @@ class DBService {
   async checkConnection(): Promise<ConnectionStatus> {
       if (!supabase) { this.mockMode = true; return { connected: true, usingMock: true }; }
       try {
-          const { error } = await supabase.from('v_companies_decrypted').select('count', { count: 'exact', head: true });
+          // Changed to check base table 'companies' instead of encrypted view
+          const { error } = await supabase.from('companies').select('count', { count: 'exact', head: true });
           if (error) { 
             if (error.code === 'PGRST301') return { connected: true }; 
             return { connected: false, error: error.message, code: error.code };
@@ -99,7 +99,7 @@ class DBService {
       return supabase;
   }
 
-  // --- SECURE AUTHENTICATION ---
+  // --- AUTHENTICATION ---
   
   async loginHR(email: string, password: string): Promise<User> {
     if (this.mockMode) {
@@ -111,7 +111,8 @@ class DBService {
 
     try {
         const cleanEmail = sanitize(email);
-        const { data, error } = await this.client.rpc("secure_hr_login", {
+        // Changed RPC to 'hr_login'
+        const { data, error } = await this.client.rpc("hr_login", {
           p_email: cleanEmail,
           p_password: password
         });
@@ -119,7 +120,7 @@ class DBService {
         if (error || !data || data.length === 0) throw new Error("Invalid email or password");
 
         const userData = data[0];
-        await this.logAudit(userData.id, 'LOGIN_SUCCESS', 'Auth', 'HR Secure Session');
+        await this.logAudit(userData.id, 'LOGIN_SUCCESS', 'Auth', 'HR Session');
         
         return {
             id: userData.id,
@@ -138,8 +139,9 @@ class DBService {
       const cleanUan = sanitize(uan.trim());
       if (this.mockMode) { return MOCK_DB.employees[0] as any; }
 
+      // Query 'employees' table directly
       const { data: emp, error } = await this.client
-          .from('v_employees_decrypted')
+          .from('employees')
           .select('*')
           .eq('uan', cleanUan)
           .maybeSingle();
@@ -160,47 +162,50 @@ class DBService {
       };
   }
 
-  // --- SECURE DATA ACCESS ---
+  // --- DATA ACCESS ---
 
   async getAllSites(): Promise<Site[]> {
     if (this.mockMode) return [...MOCK_DB.sites];
-    const { data, error } = await this.client.from('v_sites_decrypted').select('*').order('name');
+    // Query 'sites' table directly
+    const { data, error } = await this.client.from('sites').select('*').order('name');
     if (error) throw error;
     return (data || []).map(this.mapSite);
   }
 
   async getAllEmployees(): Promise<Employee[]> {
     if (this.mockMode) return [...MOCK_DB.employees];
-    const { data, error } = await this.client.from('v_employees_decrypted').select('*').order('joined_date', { ascending: false });
+    // Query 'employees' table directly
+    const { data, error } = await this.client.from('employees').select('*').order('joined_date', { ascending: false });
     if (error) throw error;
     return (data || []).map(this.mapEmployee);
   }
 
   async getEmployeeByUAN(uan: string): Promise<Employee | undefined> {
       if (this.mockMode) return MOCK_DB.employees.find(e => e.uan === uan);
-      const { data, error } = await this.client.from('v_employees_decrypted').select('*').eq('uan', uan).maybeSingle();
+      const { data, error } = await this.client.from('employees').select('*').eq('uan', uan).maybeSingle();
       if (error || !data) return undefined;
       return this.mapEmployee(data);
   }
 
   async getPendingEmployees(): Promise<Employee[]> {
     if (this.mockMode) return MOCK_DB.employees.filter(e => e.status === EmployeeStatus.PENDING);
-    const { data } = await this.client.from('v_employees_decrypted').select('*').eq('status', 'PENDING');
+    const { data } = await this.client.from('employees').select('*').eq('status', 'PENDING');
     return (data || []).map(this.mapEmployee);
   }
 
   async getSiteEmployees(siteId: string): Promise<Employee[]> {
       if (this.mockMode) return MOCK_DB.employees.filter(e => e.siteId === siteId);
-      const { data } = await this.client.from('v_employees_decrypted').select('*').eq('site_id', siteId);
+      const { data } = await this.client.from('employees').select('*').eq('site_id', siteId);
       return (data || []).map(this.mapEmployee);
   }
 
-  // --- SECURE DATA INSERTION (RPCs) ---
+  // --- DATA INSERTION (RPCs) ---
 
   async addEmployee(emp: Employee): Promise<void> {
       if (this.mockMode) { MOCK_DB.employees.push(emp); return; }
       
-      const { error } = await this.client.rpc('secure_upsert_employee', {
+      // Changed RPC to 'upsert_employee'
+      const { error } = await this.client.rpc('upsert_employee', {
           p_uan: emp.uan,
           p_name: emp.name,
           p_role: emp.role,
@@ -218,7 +223,7 @@ class DBService {
       });
 
       if (error) throw new Error("Failed to add employee: " + error.message);
-      await this.logAudit(emp.addedBy, 'EMP_CREATE', emp.uan, 'Secure Onboarding');
+      await this.logAudit(emp.addedBy, 'EMP_CREATE', emp.uan, 'Onboarding');
   }
 
   async updateEmployeeProfile(uan: string, data: Partial<Employee>) { 
@@ -238,7 +243,8 @@ class DBService {
           return;
       }
       
-      const { error } = await this.client.rpc('secure_upsert_site', {
+      // Changed RPC to 'upsert_site'
+      const { error } = await this.client.rpc('upsert_site', {
           p_id: null, // Insert mode
           p_company_id: toUUID(data.companyId),
           p_name: data.name,
@@ -258,7 +264,7 @@ class DBService {
   async updateSite(siteId: string, data: Partial<Site>): Promise<void> {
        if (this.mockMode) return;
        
-       const { error } = await this.client.rpc('secure_upsert_site', {
+       const { error } = await this.client.rpc('upsert_site', {
           p_id: siteId, // Update mode
           p_company_id: toUUID(data.companyId),
           p_name: data.name,
@@ -282,7 +288,7 @@ class DBService {
       if (error) throw new Error("Failed to delete site: " + error.message);
   }
 
-  // --- JOB ROLE MANAGEMENT (CRUD) ---
+  // --- JOB ROLE MANAGEMENT ---
 
   async getJobRoles(): Promise<JobRole[]> {
       if (this.mockMode) return MOCK_DB.job_roles;
@@ -317,7 +323,8 @@ class DBService {
   async upsertSingleSalary(record: SalaryRecord, actorId: string): Promise<void> {
       if (this.mockMode) return;
       
-      const { error } = await this.client.rpc('secure_upsert_salary', {
+      // Changed RPC to 'upsert_salary'
+      const { error } = await this.client.rpc('upsert_salary', {
         p_uan: record.employeeUan,
         p_site_id: toUUID(record.siteId),
         p_month: record.month,
@@ -336,8 +343,9 @@ class DBService {
   async getEmployeeSalaryView(uan: string, month: number, year: number): Promise<SalaryView | undefined> {
       if (this.mockMode) return undefined;
       
+      // Query 'salary_records' table directly
       const { data, error } = await this.client
-        .from('v_salary_decrypted')
+        .from('salary_records')
         .select('*')
         .eq('employee_uan', uan)
         .eq('month', month)
@@ -365,8 +373,9 @@ class DBService {
   
   async getEmployeeSalaryHistory(uan: string): Promise<{id: string, month: number, year: number}[]> {
     if (this.mockMode) return [];
+    // Query 'salary_records' table directly
     const { data, error } = await this.client
-        .from('v_salary_decrypted')
+        .from('salary_records')
         .select('id, month, year')
         .eq('employee_uan', uan)
         .order('year', { ascending: false })
@@ -397,11 +406,12 @@ class DBService {
   async getHRStats() {
     if (this.mockMode) return { totalCompanies: 1, totalSites: 1, activeSites: 1, pendingApprovals: 0, totalEmployees: 2 };
     
+    // Query base tables directly
     const [c, s, e, p] = await Promise.all([
-        this.client.from('v_companies_decrypted').select('*', { count: 'exact', head: true }),
-        this.client.from('v_sites_decrypted').select('*', { count: 'exact', head: true }),
-        this.client.from('v_employees_decrypted').select('*', { count: 'exact', head: true }),
-        this.client.from('v_employees_decrypted').select('*', { count: 'exact', head: true }).eq('status', 'PENDING')
+        this.client.from('companies').select('*', { count: 'exact', head: true }),
+        this.client.from('sites').select('*', { count: 'exact', head: true }),
+        this.client.from('employees').select('*', { count: 'exact', head: true }),
+        this.client.from('employees').select('*', { count: 'exact', head: true }).eq('status', 'PENDING')
     ]);
     
     return {
@@ -415,7 +425,8 @@ class DBService {
   
   async getCompanyDetails(id: string): Promise<Company | undefined> {
       if (this.mockMode) return MOCK_DB.companies[0];
-      const { data } = await this.client.from('v_companies_decrypted').select('*').eq('id', id).maybeSingle();
+      // Query 'companies' table directly
+      const { data } = await this.client.from('companies').select('*').eq('id', id).maybeSingle();
       if (!data) return undefined;
       return { 
           id: data.id, clientId: data.client_id, name: data.name, logoUrl: data.logo_url,
@@ -427,7 +438,8 @@ class DBService {
 
   async getSiteDetails(siteId: string): Promise<Site | undefined> {
       if (this.mockMode) return MOCK_DB.sites[0];
-      const { data } = await this.client.from('v_sites_decrypted').select('*').eq('id', siteId).maybeSingle();
+      // Query 'sites' table directly
+      const { data } = await this.client.from('sites').select('*').eq('id', siteId).maybeSingle();
       return data ? this.mapSite(data) : undefined;
   }
   
@@ -442,7 +454,7 @@ class DBService {
       if (!this.mockMode) await this.client.from('audit_logs').insert({ actor_id: actorId, action, target, details });
   }
 
-  // --- COMMON HELPERS ---
+  // --- HELPERS (Updated to handle snake_case from DB directly) ---
   
   private mapSite(s: any): Site {
     return {
@@ -471,7 +483,20 @@ class DBService {
   }
 
   async updateCompanyProfile(cid: string, data: any) { 
-       // Placeholder - Extend if needed
+      if (this.mockMode) return;
+      const { error } = await this.client.from('companies').update({
+          name: data.name,
+          email: data.email,
+          mobile: data.mobile,
+          address: data.address,
+          logo_url: data.logoUrl,
+          signature_url: data.signatureUrl,
+          stamp_url: data.stampUrl,
+          favicon_url: data.faviconUrl,
+          meta_title: data.metaTitle,
+          meta_description: data.metaDescription
+      }).eq('id', cid);
+      if (error) throw error;
   }
 
   async uploadSiteLogo(file: File) { 
