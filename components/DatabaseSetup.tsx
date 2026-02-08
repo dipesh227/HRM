@@ -4,11 +4,10 @@ import { Copy, Check, AlertTriangle, ExternalLink, RefreshCw, Database, Server, 
 export const DatabaseSetup: React.FC<{ onRetry: () => void, error: string, errorCode?: string }> = ({ onRetry, error, errorCode }) => {
   const [copied, setCopied] = useState(false);
 
-  // SQL Schema Content - v7.4 (Fixes RPC missing fields & Type Mismatch)
-  const schema = `-- KONARK HR SYSTEM - SECURITY LEVEL: MAXIMUM (AES-256 ENCRYPTION) v7.4
--- FIX: DROP TABLES to ensure columns are created as BYTEA (Binary)
--- FIX: secure_upsert_employee now includes ESIC and PF
--- FIX: secure_upsert_salary added for payroll
+  // SQL Schema Content - v7.5
+  const schema = `-- KONARK HR SYSTEM - SECURITY LEVEL: MAXIMUM (AES-256 ENCRYPTION) v7.5
+-- FIX: Added secure_upsert_site for Site Management CRUD
+-- FIX: Added secure_manage_job_role for dynamic roles
 
 -- 1. SECURITY EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -19,7 +18,7 @@ DROP VIEW IF EXISTS v_employees_decrypted;
 DROP VIEW IF EXISTS v_sites_decrypted;
 DROP VIEW IF EXISTS v_companies_decrypted;
 
--- DROPPING TABLES - Required to fix "Text vs Bytea" mismatch errors
+-- DROPPING TABLES
 DROP TABLE IF EXISTS salary_records CASCADE;
 DROP TABLE IF EXISTS employees CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
@@ -56,7 +55,6 @@ CREATE TABLE companies (
   email BYTEA, 
   mobile BYTEA, 
   address BYTEA,
-  -- Extra Branding
   signature_url TEXT,
   stamp_url TEXT,
   favicon_url TEXT,
@@ -215,7 +213,7 @@ FROM salary_records;
 
 -- 7. SECURE RPCs
 
--- A. Insert/Update Employee (With ESIC/PF)
+-- A. Insert/Update Employee
 CREATE OR REPLACE FUNCTION secure_upsert_employee(
     p_uan TEXT, p_name TEXT, p_role TEXT, p_company_id UUID, p_site_id UUID, 
     p_added_by TEXT, p_mobile TEXT, p_address TEXT, p_email TEXT,
@@ -291,7 +289,52 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- C. HR Login
+-- C. Secure Site Upsert (NEW v7.5)
+CREATE OR REPLACE FUNCTION secure_upsert_site(
+    p_id UUID, -- If null, create. If exists, update.
+    p_company_id UUID,
+    p_name TEXT,
+    p_site_code TEXT,
+    p_address TEXT,
+    p_city TEXT,
+    p_state TEXT,
+    p_pincode TEXT,
+    p_logo_url TEXT,
+    p_manager_name TEXT DEFAULT NULL,
+    p_manager_mobile TEXT DEFAULT NULL
+) RETURNS VOID AS $$
+BEGIN
+    IF p_id IS NULL THEN
+        -- Insert
+        INSERT INTO sites (
+            company_id, name, site_code, address, city, state, pincode, logo_url,
+            manager_name, manager_mobile
+        ) VALUES (
+            p_company_id,
+            pgp_sym_encrypt(p_name, get_app_secret()),
+            p_site_code,
+            pgp_sym_encrypt(p_address, get_app_secret()),
+            p_city, p_state, p_pincode, p_logo_url,
+            pgp_sym_encrypt(p_manager_name, get_app_secret()),
+            pgp_sym_encrypt(p_manager_mobile, get_app_secret())
+        );
+    ELSE
+        -- Update
+        UPDATE sites SET
+            name = pgp_sym_encrypt(p_name, get_app_secret()),
+            site_code = p_site_code,
+            address = pgp_sym_encrypt(p_address, get_app_secret()),
+            city = p_city, state = p_state, pincode = p_pincode,
+            logo_url = p_logo_url,
+            manager_name = pgp_sym_encrypt(p_manager_name, get_app_secret()),
+            manager_mobile = pgp_sym_encrypt(p_manager_mobile, get_app_secret())
+        WHERE id = p_id;
+    END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- D. HR Login
 CREATE OR REPLACE FUNCTION secure_hr_login(p_email TEXT, p_password TEXT)
 RETURNS TABLE (
   id UUID,
@@ -334,6 +377,14 @@ VALUES (
     pgp_sym_encrypt('System Admin', get_app_secret()),
     'HR'
 ) ON CONFLICT (email_hash) DO NOTHING;
+
+-- Seed Basic Roles
+INSERT INTO job_roles (title, description, is_system_default) VALUES
+('Supervisor', 'Site Manager', TRUE),
+('Driver', 'Vehicle Operator', TRUE),
+('Helper', 'General Assistant', TRUE),
+('Safety Officer', 'Site Safety', TRUE)
+ON CONFLICT (title) DO NOTHING;
 `;
 
   const handleCopy = () => {
@@ -402,7 +453,7 @@ VALUES (
                 <div className="pb-8 w-full">
                     <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
                         <ShieldCheck className="w-5 h-5 text-green-500" />
-                        Run Secure Database Schema (v7.4)
+                        Run Secure Database Schema (v7.5)
                     </h3>
                     <p className="text-slate-500 dark:text-slate-400 mb-3">
                         Copy this SQL and run it in your <strong>Supabase Studio SQL Editor</strong>. This installs <strong>PGCRYPTO</strong> and adds the latest security functions.

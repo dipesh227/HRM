@@ -28,7 +28,6 @@ const sanitize = (input: any): any => {
 };
 
 // UUID Helper: Converts empty strings to NULL for Postgres UUID fields
-// Fixes "invalid input syntax for type uuid" error
 const toUUID = (id?: string | null) => {
     if (!id || id.trim() === '') return null;
     return id;
@@ -60,7 +59,8 @@ if (SUPABASE_URL && SUPABASE_ANON_KEY) {
 
 export type ConnectionStatus = { connected: boolean; error?: string; code?: string; usingMock?: boolean; };
 
-// --- MOCK DATA STORE (Fallback) ---
+// --- MOCK DATA STORE (Fallback ONLY) ---
+// This is now purely a fallback if the connection fails.
 const MOCK_DB = {
     companies: [{ id: 'c1', clientId: 'KONARK001', name: 'Konark Enterprises Pvt. Ltd.', logoUrl: 'https://via.placeholder.com/150', email: 'info@konark.com', mobile: '9988776655', address: 'Pune, India' }] as Company[],
     sites: [{ id: 's1', companyId: 'c1', name: 'Konark Site - Pune HQ', siteCode: 'KE-PUN-01', address: 'Plot 45, Infotech Park', city: 'Pune', state: 'MH', status: SiteStatus.ACTIVE }] as Site[],
@@ -68,13 +68,8 @@ const MOCK_DB = {
         { id: 'r1', title: 'Supervisor', description: 'Site Manager', isSystemDefault: true },
         { id: 'r2', title: 'Driver', description: 'Vehicle Operator', isSystemDefault: true },
         { id: 'r3', title: 'Helper', description: 'General Assistant', isSystemDefault: true },
-        { id: 'r4', title: 'Safety Officer', description: 'Site Safety', isSystemDefault: true },
-        { id: 'r5', title: 'Other', description: 'General', isSystemDefault: true }
     ] as JobRole[],
-    employees: [
-        { uan: '100000000001', name: 'Rajesh Kumar', role: 'Supervisor', companyId: 'c1', siteId: 's1', status: EmployeeStatus.APPROVED, addedBy: 'SYSTEM', joinedDate: '2024-01-01', mobile: '9876543210' },
-        { uan: '100000000002', name: 'Sunil Patil', role: 'Driver', companyId: 'c1', siteId: 's1', status: EmployeeStatus.APPROVED, addedBy: 'SYSTEM', joinedDate: '2024-01-15', mobile: '9876543211' }
-    ] as Employee[],
+    employees: [] as Employee[],
     salary_records: [] as SalaryRecord[],
     audit_logs: [] as AuditLog[],
     notifications: [] as Notification[]
@@ -209,8 +204,8 @@ class DBService {
           p_uan: emp.uan,
           p_name: emp.name,
           p_role: emp.role,
-          p_company_id: toUUID(emp.companyId), // Fixed: Use toUUID to prevent empty string error
-          p_site_id: toUUID(emp.siteId),       // Fixed: Use toUUID to prevent empty string error
+          p_company_id: toUUID(emp.companyId), 
+          p_site_id: toUUID(emp.siteId),
           p_added_by: emp.addedBy,
           p_mobile: emp.mobile || '',
           p_address: emp.address || '',
@@ -218,45 +213,103 @@ class DBService {
           p_bank_ac: emp.bankAccountNo || '',
           p_ifsc: emp.ifscCode || '',
           p_bank_name: emp.bankName || '',
-          p_esic: emp.esicNo || '', // Added
-          p_pf: emp.pfNo || ''      // Added
+          p_esic: emp.esicNo || '',
+          p_pf: emp.pfNo || ''
       });
 
       if (error) throw new Error("Failed to add employee: " + error.message);
       await this.logAudit(emp.addedBy, 'EMP_CREATE', emp.uan, 'Secure Onboarding');
   }
 
-  // --- UPDATE EMPLOYEE PROFILE (Merge & Update) ---
   async updateEmployeeProfile(uan: string, data: Partial<Employee>) { 
       if (this.mockMode) return;
-
-      // 1. Fetch Existing Record to prevent overwriting with nulls
       const existing = await this.getEmployeeByUAN(uan);
       if (!existing) throw new Error("Employee not found");
-
-      // 2. Merge existing with updates
       const merged = { ...existing, ...data };
+      await this.addEmployee(merged); // Upsert handles update
+  }
 
-      // 3. Call RPC with fully merged object
-      const { error } = await this.client.rpc('secure_upsert_employee', {
-          p_uan: merged.uan,
-          p_name: merged.name,
-          p_role: merged.role,
-          p_company_id: toUUID(merged.companyId),
-          p_site_id: toUUID(merged.siteId),
-          p_added_by: merged.addedBy,
-          p_mobile: merged.mobile || '',
-          p_address: merged.address || '',
-          p_email: merged.personalEmail || '',
-          p_bank_ac: merged.bankAccountNo || '',
-          p_ifsc: merged.ifscCode || '',
-          p_bank_name: merged.bankName || '',
-          p_esic: merged.esicNo || '', // Added
-          p_pf: merged.pfNo || ''      // Added
+  // --- SITE MANAGEMENT (CRUD) ---
+
+  async createSite(data: Partial<Site>): Promise<void> {
+      if (this.mockMode) {
+          const newSite = { ...data, id: `s${Date.now()}`, status: SiteStatus.ACTIVE } as Site;
+          MOCK_DB.sites.push(newSite);
+          return;
+      }
+      
+      const { error } = await this.client.rpc('secure_upsert_site', {
+          p_id: null, // Insert mode
+          p_company_id: toUUID(data.companyId),
+          p_name: data.name,
+          p_site_code: data.siteCode || '',
+          p_address: data.address,
+          p_city: data.city || '',
+          p_state: data.state || '',
+          p_pincode: data.pincode || '',
+          p_logo_url: data.logoUrl || '',
+          p_manager_name: data.managerName || '',
+          p_manager_mobile: data.managerMobile || ''
       });
 
-      if (error) throw new Error("Update failed: " + error.message);
-      await this.logAudit(existing.addedBy || 'SYSTEM', 'EMP_UPDATE', uan, 'Profile Updated');
+      if (error) throw new Error("Failed to create site: " + error.message);
+  }
+
+  async updateSite(siteId: string, data: Partial<Site>): Promise<void> {
+       if (this.mockMode) return;
+       
+       const { error } = await this.client.rpc('secure_upsert_site', {
+          p_id: siteId, // Update mode
+          p_company_id: toUUID(data.companyId),
+          p_name: data.name,
+          p_site_code: data.siteCode || '',
+          p_address: data.address,
+          p_city: data.city || '',
+          p_state: data.state || '',
+          p_pincode: data.pincode || '',
+          p_logo_url: data.logoUrl || '',
+          p_manager_name: data.managerName || '',
+          p_manager_mobile: data.managerMobile || ''
+      });
+
+      if (error) throw new Error("Failed to update site: " + error.message);
+  }
+
+  async deleteSite(siteId: string): Promise<void> {
+      if (this.mockMode) { MOCK_DB.sites = MOCK_DB.sites.filter(s => s.id !== siteId); return; }
+      
+      const { error } = await this.client.from('sites').delete().eq('id', siteId);
+      if (error) throw new Error("Failed to delete site: " + error.message);
+  }
+
+  // --- JOB ROLE MANAGEMENT (CRUD) ---
+
+  async getJobRoles(): Promise<JobRole[]> {
+      if (this.mockMode) return MOCK_DB.job_roles;
+      
+      const { data, error } = await this.client.from('job_roles').select('*').order('title');
+      if (error) throw error;
+      return data || [];
+  }
+  
+  async addJobRole(title: string, description: string): Promise<void> {
+      if (this.mockMode) {
+          MOCK_DB.job_roles.push({ id: `r${Date.now()}`, title, description, isSystemDefault: false });
+          return;
+      }
+      
+      const { error } = await this.client.from('job_roles').insert({ title, description });
+      if (error) throw new Error("Failed to add role: " + error.message);
+  }
+  
+  async deleteJobRole(id: string): Promise<void> {
+      if (this.mockMode) {
+          MOCK_DB.job_roles = MOCK_DB.job_roles.filter(r => r.id !== id);
+          return;
+      }
+      
+      const { error } = await this.client.from('job_roles').delete().eq('id', id);
+      if (error) throw new Error("Failed to delete role: " + error.message);
   }
 
   // --- SALARY ---
@@ -266,7 +319,7 @@ class DBService {
       
       const { error } = await this.client.rpc('secure_upsert_salary', {
         p_uan: record.employeeUan,
-        p_site_id: toUUID(record.siteId), // Fixed: Use toUUID
+        p_site_id: toUUID(record.siteId),
         p_month: record.month,
         p_year: record.year,
         p_basic: record.basic,
@@ -378,20 +431,6 @@ class DBService {
       return data ? this.mapSite(data) : undefined;
   }
   
-  async getJobRoles(): Promise<JobRole[]> {
-      if (this.mockMode) return MOCK_DB.job_roles;
-      const { data } = await this.client.from('job_roles').select('*');
-      return data || [];
-  }
-  
-  async addJobRole(title: string, description: string): Promise<void> {
-      await this.client.from('job_roles').insert({ title, description });
-  }
-  
-  async deleteJobRole(id: string): Promise<void> {
-      await this.client.from('job_roles').delete().eq('id', id);
-  }
-
   // --- LOGGING ---
   async getAuditLogs(): Promise<AuditLog[]> {
       if (this.mockMode) return MOCK_DB.audit_logs;
@@ -444,26 +483,6 @@ class DBService {
       });
   }
 
-  async createSite(data: any) {
-       await this.client.from('sites').insert({
-           company_id: toUUID(data.companyId),
-           name: pgp_encrypt(data.name), 
-           site_code: data.siteCode,
-           address: pgp_encrypt(data.address),
-           city: data.city,
-           state: data.state,
-           pincode: data.pincode,
-           logo_url: data.logoUrl
-       });
-  }
-
-  async updateSite(sid: string, data: any) { 
-       // Placeholder
-  }
-  async deleteSite(sid: string) { 
-      await this.client.from('sites').delete().eq('id', sid);
-  }
-
   async approveEmployee(uan: string, app: boolean, aid: string) { 
       await this.client.from('employees').update({ status: app ? 'APPROVED' : 'REJECTED' }).eq('uan', uan); 
   }
@@ -474,8 +493,5 @@ class DBService {
 
   async getNotifications(uid: string) { return []; }
 }
-
-// Client-side helper for encryption simulation if needed (not used in secure RPC flow)
-const pgp_encrypt = (val: string) => val; 
 
 export const dbService = new DBService();

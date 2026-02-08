@@ -25,6 +25,8 @@ export const NewEmployeeForm: React.FC<NewEmployeeFormProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'official' | 'banking' | 'docs'>('basic');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Dynamic Roles
   const [jobRoles, setJobRoles] = useState<JobRole[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
 
@@ -65,6 +67,8 @@ export const NewEmployeeForm: React.FC<NewEmployeeFormProps> = ({
       try {
           const roles = await dbService.getJobRoles();
           setJobRoles(roles);
+          // If no initial role set or defaultRole is generic, maybe set to first available? 
+          // But keeping defaultRole prop is safer for context (e.g. creating Manager)
       } catch (error) {
           console.error("Failed to load roles", error);
       } finally {
@@ -237,6 +241,7 @@ export const NewEmployeeForm: React.FC<NewEmployeeFormProps> = ({
                                     {!loadingRoles && jobRoles.map(r => (
                                         <option key={r.id} value={r.title}>{r.title}</option>
                                     ))}
+                                    {!loadingRoles && jobRoles.length === 0 && <option value="Helper">Helper (Default)</option>}
                                 </select>
                             </div>
                         </div>
